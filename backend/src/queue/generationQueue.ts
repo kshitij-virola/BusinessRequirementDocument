@@ -1,0 +1,97 @@
+import { Queue, Worker, Job } from 'bullmq'
+import { Generation } from '../models/Generation'
+import { Workspace } from '../models/Workspace'
+import { User } from '../models/User'
+import { AuditLog } from '../models/AuditLog'
+import { aiService } from '../services/aiService'
+import { storageService } from '../services/storageService'
+import { creditService } from '../services/creditService'
+import { env } from '../config/env'
+import { logger } from '../utils/logger'
+
+const redisConnection = { url: env.redisUrl, maxRetriesPerRequest: null as null }
+
+export let generationQueue: Queue
+
+export const initGenerationQueue = (io?: import('socket.io').Server): void => {
+  generationQueue = new Queue('generation', { connection: redisConnection })
+
+  const worker = new Worker<{ generationId: string; userId: string }>(
+    'generation',
+    async (job: Job<{ generationId: string; userId: string }>) => {
+      const { generationId, userId } = job.data as { generationId: string; userId: string }
+      const startTime = Date.now()
+
+      const gen = await Generation.findById(generationId)
+      if (!gen) throw new Error(`Generation ${generationId} not found`)
+
+      await Generation.findByIdAndUpdate(generationId, { status: 'processing' })
+      io?.to(userId).emit('generation:status', { id: generationId, status: 'processing' })
+
+      logger.debug(`Processing generation ${generationId}`)
+
+      let promptText = gen.prompt
+      if (gen.inputMode === 'figma' && gen.figmaUrl) {
+        promptText = await aiService.fetchFigmaDesign(gen.figmaUrl)
+      }
+
+      const result = await aiService.generate({
+        prompt: promptText,
+        framework: gen.framework,
+        inputMode: gen.inputMode,
+      })
+
+      const zipBuffer = await storageService.packToZip(result.files)
+      const key = `themes/${userId}/${generationId}/theme.zip`
+      const zipUrl = await storageService.uploadBuffer(key, zipBuffer, 'application/zip')
+
+      const processingTimeMs = Date.now() - startTime
+
+      await Generation.findByIdAndUpdate(generationId, {
+        status: 'completed',
+        outputCode: result.code,
+        outputFiles: result.files,
+        zipKey: key,
+        zipUrl,
+        tokensUsed: result.tokensUsed,
+        creditsUsed: gen.creditsUsed,
+        aiProvider: result.provider,
+        aiModel: result.model,
+        aiCostUsd: result.costUsd,
+        processingTimeMs,
+      })
+
+      await creditService.deduct(userId, gen.creditsUsed, `generation:${generationId}`)
+
+      const user = await User.findById(userId)
+      await AuditLog.create({
+        userId,
+        actor: user?.email ?? userId,
+        actorRole: user?.role ?? 'user',
+        action: 'generation.complete',
+        entityId: generationId,
+        entityType: 'Generation',
+        metadata: { tokensUsed: result.tokensUsed, costUsd: result.costUsd, processingTimeMs },
+      })
+
+      io?.to(userId).emit('generation:status', { id: generationId, status: 'completed', zipUrl })
+      logger.info(`Generation ${generationId} completed in ${processingTimeMs}ms`)
+    },
+    { connection: redisConnection, concurrency: 5 }
+  )
+
+  worker.on('failed', async (job: Job<{ generationId: string; userId: string }> | undefined, err: Error) => {
+    if (!job) return
+    const { generationId, userId } = job.data
+    logger.error(`Generation ${generationId} failed:`, err)
+
+    await Generation.findByIdAndUpdate(generationId, { status: 'failed', errorMessage: err.message })
+    const user = await User.findById(userId)
+    if (user) await creditService.refund(userId, 1, `failed generation:${generationId}`)
+    await AuditLog.create({ userId, actor: user?.email ?? userId, actorRole: user?.role ?? 'user', action: 'generation.fail', entityId: generationId, entityType: 'Generation', metadata: { error: err.message } })
+
+    io?.to(userId).emit('generation:status', { id: generationId, status: 'failed', error: err.message })
+  })
+
+  logger.info('Generation queue initialized')
+}
