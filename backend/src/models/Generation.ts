@@ -13,6 +13,7 @@ export interface IGeneration extends Document {
   inputMode: InputMode
   figmaUrl?: string
   imageKey?: string
+  imageKeys?: string[]
   status: GenerationStatus
   outputCode?: string
   outputFiles?: { path: string; content: string }[]
@@ -39,6 +40,7 @@ const generationSchema = new Schema<IGeneration>(
     inputMode:      { type: String, enum: ['text', 'figma', 'image'], default: 'text' },
     figmaUrl:       { type: String },
     imageKey:       { type: String },
+    imageKeys:      { type: [String], default: undefined },
     status:         { type: String, enum: ['pending', 'processing', 'completed', 'failed', 'cancelled'], default: 'pending' },
     outputCode:     { type: String },
     outputFiles:    [{ path: String, content: String }],

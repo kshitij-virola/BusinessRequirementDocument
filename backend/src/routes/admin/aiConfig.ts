@@ -2,11 +2,11 @@ import { Router, Response } from 'express'
 import { Config } from '../../models/Config'
 import { AuditLog } from '../../models/AuditLog'
 import { authenticate, AuthRequest } from '../../middleware/auth'
-import { requireSuperAdmin } from '../../middleware/rbac'
+import { requireAdmin } from '../../middleware/rbac'
 import { success } from '../../utils/apiResponse'
 
 const router = Router()
-router.use(authenticate, requireSuperAdmin)
+router.use(authenticate, requireAdmin)
 
 const AI_KEYS = [
   'ai.activeProvider',

@@ -20,7 +20,7 @@ if (env.nodeEnv === 'production') {
   process.exit(1)
 }
 
-async function seed(): Promise<void> {
+const seed = async (): Promise<void> => {
   await mongoose.connect(env.mongoUri)
   logger.info('Connected — seeding dev data...')
 
@@ -89,33 +89,33 @@ async function seed(): Promise<void> {
 
   const sampleCode = `import { useState } from 'react'
 
-export default function Dashboard() {
-  return (
-    <div className="flex h-screen bg-gray-950 text-white">
-      <aside className="w-64 border-r border-gray-800 p-6">
-        <h1 className="text-xl font-bold text-violet-400">TROO AI</h1>
-        <nav className="mt-8 space-y-2">
-          {['Dashboard', 'Projects', 'Settings'].map((item) => (
-            <a key={item} href="#" className="block px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white">
-              {item}
-            </a>
-          ))}
-        </nav>
-      </aside>
-      <main className="flex-1 p-8">
-        <h2 className="text-2xl font-bold">Welcome back!</h2>
-        <div className="mt-6 grid grid-cols-3 gap-4">
-          {[{ label: 'Projects', value: '12' }, { label: 'Credits', value: '420' }, { label: 'Downloads', value: '8' }].map((s) => (
-            <div key={s.label} className="rounded-xl border border-gray-800 bg-gray-900 p-6">
-              <p className="text-gray-400 text-sm">{s.label}</p>
-              <p className="text-2xl font-bold mt-1">{s.value}</p>
-            </div>
-          ))}
-        </div>
-      </main>
-    </div>
-  )
-}`
+                      export default function Dashboard() {
+                        return (
+                          <div className="flex h-screen bg-gray-950 text-white">
+                            <aside className="w-64 border-r border-gray-800 p-6">
+                              <h1 className="text-xl font-bold text-violet-400">TROO AI</h1>
+                              <nav className="mt-8 space-y-2">
+                                {['Dashboard', 'Projects', 'Settings'].map((item) => (
+                                  <a key={item} href="#" className="block px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white">
+                                    {item}
+                                  </a>
+                                ))}
+                              </nav>
+                            </aside>
+                            <main className="flex-1 p-8">
+                              <h2 className="text-2xl font-bold">Welcome back!</h2>
+                              <div className="mt-6 grid grid-cols-3 gap-4">
+                                {[{ label: 'Projects', value: '12' }, { label: 'Credits', value: '420' }, { label: 'Downloads', value: '8' }].map((s) => (
+                                  <div key={s.label} className="rounded-xl border border-gray-800 bg-gray-900 p-6">
+                                    <p className="text-gray-400 text-sm">{s.label}</p>
+                                    <p className="text-2xl font-bold mt-1">{s.value}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </main>
+                          </div>
+                        )
+                      }`
 
   const now = Date.now()
 

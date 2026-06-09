@@ -1,5 +1,6 @@
 import { Router, Response } from 'express'
 import { z } from 'zod'
+import multer from 'multer'
 import { Generation } from '../models/Generation'
 import { Workspace } from '../models/Workspace'
 import { AuditLog } from '../models/AuditLog'
@@ -10,8 +11,49 @@ import { success, error, created } from '../utils/apiResponse'
 import { generationQueue } from '../queue/generationQueue'
 import { storageService } from '../services/storageService'
 
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+})
+
 const router = Router()
 router.use(authenticate)
+
+// POST /api/generations/upload-image — upload single screenshot
+router.post('/upload-image', upload.single('image'), async (req: AuthRequest, res: Response): Promise<void> => {
+  if (!req.file) { error(res, 'No file uploaded', 400); return }
+
+  try {
+    const userId = req.user!.userId
+    const fileExtension = req.file.originalname.split('.').pop() || 'png'
+    const key = `generations/${userId}/${Date.now()}.${fileExtension}`
+    const url = await storageService.uploadBuffer(key, req.file.buffer, req.file.mimetype)
+    success(res, { key, url })
+  } catch (err: any) {
+    error(res, err.message || 'Upload failed', 500)
+  }
+})
+
+// POST /api/generations/upload-images — upload multiple images (for text mode attachments)
+router.post('/upload-images', upload.array('images', 10), async (req: AuthRequest, res: Response): Promise<void> => {
+  const files = req.files as Express.Multer.File[]
+  if (!files || files.length === 0) { error(res, 'No files uploaded', 400); return }
+
+  try {
+    const userId = req.user!.userId
+    const uploads = await Promise.all(
+      files.map(async (file) => {
+        const ext = file.originalname.split('.').pop() || 'png'
+        const key = `generations/${userId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+        const url = await storageService.uploadBuffer(key, file.buffer, file.mimetype)
+        return { key, url }
+      })
+    )
+    success(res, { uploads })
+  } catch (err: any) {
+    error(res, err.message || 'Upload failed', 500)
+  }
+})
 
 const generateSchema = z.object({
   workspaceId: z.string(),
@@ -19,6 +61,8 @@ const generateSchema = z.object({
   framework:   z.enum(['react', 'vue', 'angular', 'html', 'wordpress']),
   inputMode:   z.enum(['text', 'figma', 'image']).default('text'),
   figmaUrl:    z.string().url().optional(),
+  imageKey:    z.string().optional(),
+  imageKeys:   z.array(z.string()).max(10).optional(),
 })
 
 // POST /api/generations — enqueue a new generation
@@ -37,6 +81,8 @@ router.post('/', checkCredits('textGeneration'), validate(generateSchema), async
     framework: req.body.framework,
     inputMode: req.body.inputMode,
     figmaUrl:  req.body.figmaUrl,
+    imageKey:  req.body.imageKey,
+    imageKeys: req.body.imageKeys,
     status:    'pending',
     creditsUsed: req.body._creditCost,
   })

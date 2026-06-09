@@ -19,9 +19,7 @@ export const billingService = {
     if (!user) throw new Error('User not found')
 
     let customerId = user.subscription.stripeCustomerId
-    if (!customerId) {
-      customerId = await billingService.createCustomer(userId, user.email, user.name)
-    }
+    if (!customerId) customerId = await billingService.createCustomer(userId, user.email, user.name)
 
     const session = await stripe.checkout.sessions.create({
       customer: customerId,

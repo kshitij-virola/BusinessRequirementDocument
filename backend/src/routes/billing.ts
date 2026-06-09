@@ -2,10 +2,17 @@ import { Router, Request, Response } from 'express'
 import { billingService } from '../services/billingService'
 import { authenticate, AuthRequest } from '../middleware/auth'
 import { User } from '../models/User'
+import { Plan } from '../models/Plan'
 import { success, error } from '../utils/apiResponse'
 import { env } from '../config/env'
 
 const router = Router()
+
+// GET /api/billing/plans — public list of active plans
+router.get('/plans', async (_req: Request, res: Response): Promise<void> => {
+  const plans = await Plan.find({ isActive: true }).sort({ monthlyPrice: 1 })
+  success(res, plans)
+})
 
 // POST /api/billing/checkout — create Stripe checkout session
 router.post('/checkout', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {

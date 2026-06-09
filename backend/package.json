@@ -11,11 +11,12 @@
     "format": "prettier --write src",
     "test": "jest --runInBand",
     "test:coverage": "jest --coverage",
-    "migrate": "ts-node src/scripts/migrate.ts",
-    "migrate:up": "ts-node src/scripts/migrate.ts up",
-    "migrate:down": "ts-node src/scripts/migrate.ts down",
-    "migrate:status": "ts-node src/scripts/migrate.ts status",
-    "seed:dev": "ts-node src/scripts/seeds/dev.ts"
+    "migrate": "ts-node --transpile-only src/scripts/migrate.ts",
+    "migrate:up": "ts-node --transpile-only src/scripts/migrate.ts up",
+    "migrate:down": "ts-node --transpile-only src/scripts/migrate.ts down",
+    "migrate:status": "ts-node --transpile-only src/scripts/migrate.ts status",
+    "migrate:reseed": "ts-node --transpile-only src/scripts/migrate.ts reseed",
+    "seed:dev": "ts-node --transpile-only src/scripts/seeds/dev.ts"
   },
   "keywords": [],
   "license": "ISC",

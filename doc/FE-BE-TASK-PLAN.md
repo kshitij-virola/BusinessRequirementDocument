@@ -55,7 +55,7 @@
 | 3.1 | List workspaces | `app/(dashboard)/dashboard/workspaces/page.tsx` | `GET /workspaces` | ✅ | `useWorkspaces()` hook |
 | 3.2 | Create workspace + enqueue text generation | `app/(dashboard)/dashboard/workspaces/new/page.tsx` | `POST /workspaces` + `POST /generations` | ✅ | Creates workspace then enqueues |
 | 3.3 | Figma URL generation | `app/(dashboard)/dashboard/workspaces/new/page.tsx` | `POST /generations { inputMode: 'figma' }` | 🔶 | FE submits correctly; BE `aiService.fetchFigmaDesign()` needs `FIGMA_API_TOKEN` in `.env` |
-| 3.4 | Image upload → generation | `app/(dashboard)/dashboard/workspaces/new/page.tsx` | 🚫 `POST /generations/upload-image` | 🚫 | FE dropzone collects file; BE has no multipart image upload endpoint; need `multer` route + S3 upload before enqueue |
+| 3.4 | Image upload → generation | `app/(dashboard)/dashboard/workspaces/new/page.tsx` | `POST /generations/upload-image` | ✅ | Frontend uploads files/images to backend, backend uploads to S3 or local uploads folder, then enqueues generation with imageKey |
 | 3.5 | Load workspace chat history | `app/(dashboard)/dashboard/workspaces/(chat)/[id]/page.tsx` | `GET /generations?workspaceId=` | ❌ | Page uses `mockInitialMessages`; load real generation history on mount |
 | 3.6 | Send chat prompt (refinement) | `app/(dashboard)/dashboard/workspaces/(chat)/[id]/page.tsx` | `POST /generations` | ❌ | FE calls `setTimeout` mock; replace with `generationsApi.generate()` |
 | 3.7 | Poll generation status | `lib/api/hooks.ts` — `useGeneration(id)` | `GET /generations/:id` | 🔶 | Hook polls every 2s when pending/processing; chat page still uses mock |

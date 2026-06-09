@@ -1,3 +1,4 @@
+import path from 'path'
 import express from 'express'
 import http from 'http'
 import cors from 'cors'
@@ -56,6 +57,7 @@ app.use(passport.initialize())
 app.use('/api/billing/webhook', express.raw({ type: 'application/json' }))
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true }))
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')))
 
 // ── Rate limiting ──────────────────────────────────────────────────────────────
 // In development, use very generous limits so normal browser usage never hits them.

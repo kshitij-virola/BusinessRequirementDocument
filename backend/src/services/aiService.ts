@@ -7,7 +7,7 @@ export interface GenerateOptions {
   framework: string
   inputMode: 'text' | 'figma' | 'image'
   figmaUrl?: string
-  imageBase64?: string
+  imagesBase64?: string[]
   systemPrompt?: string
 }
 
@@ -35,14 +35,20 @@ const generateWithOpenAI = async (options: GenerateOptions): Promise<GenerateRes
     { role: 'system', content: options.systemPrompt ?? SYSTEM_PROMPT },
   ]
 
-  if (options.inputMode === 'image' && options.imageBase64) {
-    messages.push({
-      role: 'user',
-      content: [
-        { type: 'image_url', image_url: { url: `data:image/png;base64,${options.imageBase64}` } },
-        { type: 'text', text: `Convert this UI design to ${options.framework} code. ${options.prompt}` },
-      ],
-    })
+  const images = options.imagesBase64 ?? []
+
+  if (images.length > 0) {
+    const imageParts: OpenAI.Chat.Completions.ChatCompletionContentPart[] = images.map((b64) => ({
+      type: 'image_url',
+      image_url: { url: `data:image/png;base64,${b64}` },
+    }))
+
+    const textPart: OpenAI.Chat.Completions.ChatCompletionContentPart =
+      options.inputMode === 'image'
+        ? { type: 'text', text: `Convert this UI design to ${options.framework} code. ${options.prompt}` }
+        : { type: 'text', text: `Generate a ${options.framework} theme: ${options.prompt}\n\nReference images are attached above for visual context.` }
+
+    messages.push({ role: 'user', content: [...imageParts, textPart] })
   } else {
     messages.push({
       role: 'user',
@@ -67,7 +73,7 @@ const generateWithOpenAI = async (options: GenerateOptions): Promise<GenerateRes
   }
 }
 
-async function generateWithAnthropic(options: GenerateOptions): Promise<GenerateResult> {
+const generateWithAnthropic = async (options: GenerateOptions): Promise<GenerateResult> => {
   if (!env.ai.anthropicKey) throw new Error('Anthropic not configured')
   // Anthropic SDK integration placeholder
   throw new Error('Anthropic provider not yet configured')

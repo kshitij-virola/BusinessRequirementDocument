@@ -40,7 +40,7 @@ export interface IUser extends Document {
 
 const PLAN_LIMITS: Record<SubscriptionPlan, { credits: number; storageBytes: number }> = {
   free:   { credits: 25,   storageBytes: 500 * 1024 * 1024   },
-  pro:    { credits: 500,  storageBytes: 10 * 1024 * 1024 * 1024  },
+  pro:    { credits: 500,  storageBytes: 10  * 1024 * 1024 * 1024  },
   agency: { credits: 5000, storageBytes: 100 * 1024 * 1024 * 1024 },
 }
 

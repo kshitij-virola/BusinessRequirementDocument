@@ -160,6 +160,20 @@ router.post('/reset-password', async (req: Request, res: Response): Promise<void
   success(res, null, 'Password reset successfully. Please login.')
 })
 
+// POST /api/auth/deactivate
+router.post('/deactivate', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+  const user = await User.findById(req.user?.userId)
+  if (!user) { error(res, 'User not found', 404); return }
+
+  user.isSuspended = true
+  await user.save()
+  await Token.deleteMany({ userId: user._id, type: 'refresh' })
+  await AuditLog.create({ userId: user._id, actor: req.user!.email, actorRole: req.user!.role, action: 'user.deactivate' })
+
+  res.clearCookie('refreshToken')
+  success(res, null, 'Account deactivated successfully')
+})
+
 // GET /api/auth/me
 router.get('/me', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   const user = await User.findById(req.user?.userId).select('-password')

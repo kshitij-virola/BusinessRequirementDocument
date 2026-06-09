@@ -1,6 +1,5 @@
 import { Queue, Worker, Job } from 'bullmq'
 import { Generation } from '../models/Generation'
-import { Workspace } from '../models/Workspace'
 import { User } from '../models/User'
 import { AuditLog } from '../models/AuditLog'
 import { aiService } from '../services/aiService'
@@ -31,14 +30,33 @@ export const initGenerationQueue = (io?: import('socket.io').Server): void => {
       logger.debug(`Processing generation ${generationId}`)
 
       let promptText = gen.prompt
-      if (gen.inputMode === 'figma' && gen.figmaUrl) {
-        promptText = await aiService.fetchFigmaDesign(gen.figmaUrl)
+      if (gen.inputMode === 'figma' && gen.figmaUrl) promptText = await aiService.fetchFigmaDesign(gen.figmaUrl)
+
+      let imagesBase64: string[] = []
+
+      if (gen.inputMode === 'image' && gen.imageKey) {
+        try {
+          const buf = await storageService.getObjectBuffer(gen.imageKey)
+          imagesBase64 = [buf.toString('base64')]
+        } catch (err: any) {
+          logger.error(`Failed to load image from storage: ${err.message}`)
+        }
+      } else if (gen.imageKeys && gen.imageKeys.length > 0) {
+        const results = await Promise.allSettled(
+          gen.imageKeys.map((key) => storageService.getObjectBuffer(key))
+        )
+        imagesBase64 = results
+          .filter((r): r is PromiseFulfilledResult<Buffer> => r.status === 'fulfilled')
+          .map((r) => r.value.toString('base64'))
+        const failed = results.filter((r) => r.status === 'rejected').length
+        if (failed > 0) logger.error(`Failed to load ${failed}/${gen.imageKeys.length} attached images`)
       }
 
       const result = await aiService.generate({
         prompt: promptText,
         framework: gen.framework,
         inputMode: gen.inputMode,
+        imagesBase64: imagesBase64.length > 0 ? imagesBase64 : undefined,
       })
 
       const zipBuffer = await storageService.packToZip(result.files)

@@ -14,4 +14,6 @@ const configSchema = new Schema<IConfig>(
   { timestamps: true }
 )
 
-export const Config = mongoose.model<IConfig>('Config', configSchema)
+export const Config =
+  (mongoose.models['Config'] as mongoose.Model<IConfig> | undefined) ??
+  mongoose.model<IConfig>('Config', configSchema)
