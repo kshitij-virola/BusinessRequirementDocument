@@ -1,0 +1,140 @@
+'use client'
+import useSWR, { mutate } from 'swr'
+import { dashboardApi } from './dashboard'
+import { workspacesApi } from './workspaces'
+import { generationsApi } from './generations'
+import { adminApi } from './admin'
+import { authApi } from './auth'
+import { billingApi } from './billing'
+
+// ── SWR keys ──────────────────────────────────────────────────────────────────
+
+export const KEYS = {
+  me:                '/auth/me',
+  dashboardStats:    '/dashboard/stats',
+  recentActivity:    '/dashboard/recent-activity',
+  creditUsage:       (p: string) => `/dashboard/credit-usage?period=${p}`,
+  workspaces:        (q?: string) => `/workspaces${q ?? ''}`,
+  workspace:         (id: string) => `/workspaces/${id}`,
+  workspaceVersions: (id: string) => `/workspaces/${id}/versions`,
+  generation:        (id: string) => `/generations/${id}`,
+  generations:       (q?: string) => `/generations${q ?? ''}`,
+  adminStats:        '/admin/stats',
+  adminUsers:        (q?: string) => `/admin/users${q ?? ''}`,
+  plans:             '/billing/plans',
+  adminPlans:        '/admin/plans',
+  adminLogs:         (q?: string) => `/admin/logs${q ?? ''}`,
+  adminAIConfig:     '/admin/ai-config',
+  adminPlatformSettings: '/admin/settings',
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+export const useMe = () => {
+  return useSWR(KEYS.me, authApi.getMe, { revalidateOnFocus: false })
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+
+export const useDashboardStats = () => {
+  return useSWR(KEYS.dashboardStats, dashboardApi.getStats)
+}
+
+export const useRecentActivity = () => {
+  return useSWR(KEYS.recentActivity, dashboardApi.getRecentActivity)
+}
+
+export const useCreditUsage = (period: 'week' | 'month' = 'week') => {
+  return useSWR(KEYS.creditUsage(period), () => dashboardApi.getCreditUsage(period))
+}
+
+// ── Workspaces ────────────────────────────────────────────────────────────────
+
+export const useWorkspaces = (status?: string) => {
+  const key = KEYS.workspaces(status ? `?status=${status}` : '')
+  return useSWR(key, () => workspacesApi.list({ status }))
+}
+
+export const useWorkspace = (id: string) => {
+  return useSWR(id ? KEYS.workspace(id) : null, () => workspacesApi.get(id))
+}
+
+export const useWorkspaceVersions = (id: string) => {
+  return useSWR(id ? KEYS.workspaceVersions(id) : null, () => workspacesApi.getVersions(id))
+}
+
+// ── Generations ───────────────────────────────────────────────────────────────
+
+export const useGeneration = (id: string) => {
+  return useSWR(
+    id ? KEYS.generation(id) : null,
+    () => generationsApi.get(id),
+    {
+      refreshInterval: (gen) =>
+        gen?.status === 'pending' || gen?.status === 'processing' ? 2_000 : 0,
+    }
+  )
+}
+
+export const useGenerations = (params?: { status?: string; framework?: string }) => {
+  const qs = params
+    ? `?${new URLSearchParams(params as Record<string, string>).toString()}`
+    : ''
+  return useSWR(KEYS.generations(qs), () => generationsApi.list(params))
+}
+
+// ── Billing ───────────────────────────────────────────────────────────────────
+
+export const usePlans = () => {
+  return useSWR(KEYS.plans, billingApi.getPlans, { revalidateOnFocus: false })
+}
+
+// ── Admin ─────────────────────────────────────────────────────────────────────
+
+export const useAdminStats = () => {
+  return useSWR(KEYS.adminStats, adminApi.getStats)
+}
+
+export const useAdminUsers = (params?: {
+  search?: string
+  plan?: string
+  status?: string
+  page?: number
+}) => {
+  const qs = params
+    ? `?${new URLSearchParams(params as Record<string, string>).toString()}`
+    : ''
+  return useSWR(KEYS.adminUsers(qs), () => adminApi.listUsers(params))
+}
+
+export const useAdminPlans = () => {
+  return useSWR(KEYS.adminPlans, adminApi.listPlans)
+}
+
+export const useAdminLogs = (params?: { action?: string; page?: number }) => {
+  const qs = params
+    ? `?${new URLSearchParams(params as Record<string, string>).toString()}`
+    : ''
+  return useSWR(KEYS.adminLogs(qs), () => adminApi.listLogs(params))
+}
+
+export const useAIConfig = () => {
+  return useSWR(KEYS.adminAIConfig, adminApi.getAIConfig)
+}
+
+export const usePlatformSettings = () => {
+  return useSWR(KEYS.adminPlatformSettings, adminApi.getPlatformSettings)
+}
+
+// ── Cache invalidation helpers ────────────────────────────────────────────────
+
+export const invalidateWorkspaces = async () => {
+  await mutate((key: unknown) => typeof key === 'string' && key.startsWith('/workspaces'))
+}
+
+export const invalidateDashboard = async () => {
+  await Promise.all([
+    mutate(KEYS.dashboardStats),
+    mutate(KEYS.recentActivity),
+  ])
+}
