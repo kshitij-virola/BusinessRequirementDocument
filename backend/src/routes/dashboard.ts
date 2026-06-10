@@ -12,12 +12,13 @@ router.use(authenticate)
 router.get('/stats', async (req: AuthRequest, res: Response): Promise<void> => {
   const userId = req.user!.userId
 
-  const [user, totalProjects, activeProjects, totalGenerations, downloads] = await Promise.all([
+  const [user, totalProjects, activeProjects, totalGenerations, downloads, failedGenerations] = await Promise.all([
     User.findById(userId),
     Workspace.countDocuments({ userId, status: { $ne: 'deleted' } }),
     Workspace.countDocuments({ userId, status: 'active' }),
     Generation.countDocuments({ userId }),
     Generation.countDocuments({ userId, zipUrl: { $exists: true } }),
+    Generation.countDocuments({ userId, status: 'failed' }),
   ])
 
   success(res, {
@@ -31,6 +32,10 @@ router.get('/stats', async (req: AuthRequest, res: Response): Promise<void> => {
     subscriptionStatus: user?.subscription.status ?? 'active',
     storageUsedBytes: user?.storage.usedBytes ?? 0,
     storageLimitBytes: user?.storage.limitBytes ?? 0,
+    failedGenerations,
+    successRate: totalGenerations > 0
+      ? parseFloat(((totalGenerations - failedGenerations) / totalGenerations * 100).toFixed(1))
+      : 100,
   })
 })
 

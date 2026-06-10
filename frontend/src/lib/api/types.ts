@@ -50,6 +50,8 @@ export interface DashboardStats {
   subscriptionStatus: string
   storageUsedBytes: number
   storageLimitBytes: number
+  failedGenerations: number
+  successRate:       number
 }
 
 export interface RecentGeneration {
@@ -154,6 +156,15 @@ export interface PlatformSettings {
 }
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
+
+export interface AdminAccount {
+  _id:         string
+  name:        string
+  email:       string
+  role:        'admin' | 'superadmin'
+  permissions: string[]
+  createdAt:   string
+}
 
 export interface AdminUser {
   _id:         string

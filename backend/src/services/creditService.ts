@@ -16,6 +16,8 @@ export const creditService = {
       actor: user.email,
       actorRole: user.role,
       action: 'credits.deduct',
+      entityId: String(userId),
+      entityType: 'User',
       metadata: { amount, reason, remaining: user.credits.remaining },
     })
 

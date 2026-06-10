@@ -41,7 +41,7 @@ router.post('/register', validate(registerSchema), async (req: Request, res: Res
 
   await emailService.sendVerification(email, verifyToken)
   await emailService.sendWelcome(email, name)
-  await AuditLog.create({ userId: user._id, actor: email, actorRole: 'user', action: 'user.register' })
+  await AuditLog.create({ userId: user._id, actor: email, actorRole: 'user', action: 'user.register', entityId: String(user._id), entityType: 'User' })
 
   created(res, { message: 'Registration successful. Please verify your email.' })
 })
@@ -73,7 +73,7 @@ router.post('/login', validate(loginSchema), async (req: Request, res: Response)
     maxAge: 7 * 24 * 60 * 60 * 1000,
   })
 
-  await AuditLog.create({ userId: user._id, actor: email, actorRole: user.role, action: 'user.login' })
+  await AuditLog.create({ userId: user._id, actor: email, actorRole: user.role, action: 'user.login', entityId: String(user._id), entityType: 'User' })
 
   success(res, {
     accessToken,
@@ -112,7 +112,7 @@ router.post('/logout', authenticate, async (req: AuthRequest, res: Response): Pr
   const refreshToken = req.cookies?.refreshToken
   if (refreshToken) await Token.deleteOne({ token: refreshToken })
   res.clearCookie('refreshToken')
-  if (req.user) await AuditLog.create({ userId: req.user.userId, actor: req.user.email, actorRole: req.user.role, action: 'user.logout' })
+  if (req.user) await AuditLog.create({ userId: req.user.userId, actor: req.user.email, actorRole: req.user.role, action: 'user.logout', entityId: String(req.user.userId), entityType: 'User' })
   success(res, null, 'Logged out successfully')
 })
 
@@ -137,7 +137,7 @@ router.post('/forgot-password', async (req: Request, res: Response): Promise<voi
     user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000)
     await user.save()
     await emailService.sendPasswordReset(email, token)
-    await AuditLog.create({ userId: user._id, actor: email, actorRole: user.role, action: 'user.password_reset' })
+    await AuditLog.create({ userId: user._id, actor: email, actorRole: user.role, action: 'user.password_reset', entityId: String(user._id), entityType: 'User' })
   }
   success(res, null, 'If this email exists, a reset link has been sent.')
 })
@@ -168,7 +168,7 @@ router.post('/deactivate', authenticate, async (req: AuthRequest, res: Response)
   user.isSuspended = true
   await user.save()
   await Token.deleteMany({ userId: user._id, type: 'refresh' })
-  await AuditLog.create({ userId: user._id, actor: req.user!.email, actorRole: req.user!.role, action: 'user.deactivate' })
+  await AuditLog.create({ userId: user._id, actor: req.user!.email, actorRole: req.user!.role, action: 'user.deactivate', entityId: String(user._id), entityType: 'User' })
 
   res.clearCookie('refreshToken')
   success(res, null, 'Account deactivated successfully')
@@ -210,6 +210,7 @@ router.post('/google/exchange', async (req: Request, res: Response): Promise<voi
   const gUser = await profileRes.json() as { id: string; email: string; name: string; picture?: string }
 
   let user = await User.findOne({ oauthProvider: 'google', oauthId: gUser.id })
+  let isNewUser = false
   if (!user) {
     user = await User.findOne({ email: gUser.email }) ?? null
     if (user) {
@@ -226,10 +227,16 @@ router.post('/google/exchange', async (req: Request, res: Response): Promise<voi
         isEmailVerified: true,
         avatar:          gUser.picture,
       })
+      isNewUser = true
     }
   }
 
   if (user.isSuspended) { error(res, 'Account suspended', 403); return }
+
+  if (isNewUser) {
+    await AuditLog.create({ userId: user._id, actor: user.email, actorRole: 'user', action: 'user.register', entityId: String(user._id), entityType: 'User', metadata: { provider: 'google' } })
+  }
+  await AuditLog.create({ userId: user._id, actor: user.email, actorRole: user.role, action: 'user.login', entityId: String(user._id), entityType: 'User', metadata: { provider: 'google' } })
 
   const accessToken  = signAccessToken({ userId: String(user._id), role: user.role, email: user.email })
   const refreshToken = signRefreshToken({ userId: String(user._id) })
@@ -248,7 +255,7 @@ router.post('/google/exchange', async (req: Request, res: Response): Promise<voi
 
 // ── OAuth helpers ──────────────────────────────────────────────────────────────
 
-const issueOAuthSession = async (user: IUser, res: Response): Promise<void> => {
+const issueOAuthSession = async (user: IUser, res: Response, provider: string): Promise<void> => {
   const accessToken  = signAccessToken({ userId: String(user._id), role: user.role, email: user.email })
   const refreshToken = signRefreshToken({ userId: String(user._id) })
 
@@ -265,6 +272,8 @@ const issueOAuthSession = async (user: IUser, res: Response): Promise<void> => {
     sameSite: 'lax',
     maxAge:   7 * 24 * 60 * 60 * 1000,
   })
+
+  await AuditLog.create({ userId: user._id, actor: user.email, actorRole: user.role, action: 'user.login', entityId: String(user._id), entityType: 'User', metadata: { provider } })
 
   const params = new URLSearchParams({
     token:  accessToken,
@@ -284,7 +293,7 @@ router.get('/google/callback',
   passport.authenticate('google', { session: false, failureRedirect: oauthFailUrl }),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      await issueOAuthSession(req.user as unknown as IUser, res)
+      await issueOAuthSession(req.user as unknown as IUser, res, 'google')
     } catch {
       res.redirect(oauthFailUrl)
     }
@@ -299,7 +308,7 @@ router.get('/github/callback',
   passport.authenticate('github', { session: false, failureRedirect: oauthFailUrl }),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      await issueOAuthSession(req.user as unknown as IUser, res)
+      await issueOAuthSession(req.user as unknown as IUser, res, 'github')
     } catch {
       res.redirect(oauthFailUrl)
     }

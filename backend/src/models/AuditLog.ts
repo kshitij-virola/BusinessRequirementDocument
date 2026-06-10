@@ -10,6 +10,7 @@ export type AuditAction =
   | 'admin.suspend_user' | 'admin.activate_user' | 'admin.reset_credits'
   | 'admin.update_plan' | 'admin.update_ai_config'
   | 'admin.change_user_role' | 'admin.update_settings'
+  | 'admin.create_admin' | 'admin.update_admin' | 'admin.delete_admin'
 
 export interface IAuditLog extends Document {
   userId?: mongoose.Types.ObjectId

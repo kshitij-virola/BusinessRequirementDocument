@@ -22,6 +22,7 @@ import generationRoutes   from './routes/generations'
 import dashboardRoutes    from './routes/dashboard'
 import billingRoutes      from './routes/billing'
 import adminUserRoutes     from './routes/admin/users'
+import adminAdminRoutes    from './routes/admin/admins'
 import adminPlanRoutes     from './routes/admin/plans'
 import adminStatsRoutes    from './routes/admin/stats'
 import adminLogRoutes      from './routes/admin/auditLogs'
@@ -92,6 +93,7 @@ app.use('/api/generations',  generationRoutes)
 app.use('/api/dashboard',    dashboardRoutes)
 app.use('/api/billing',      billingRoutes)
 app.use('/api/admin/users',     adminUserRoutes)
+app.use('/api/admin/admins',    adminAdminRoutes)
 app.use('/api/admin/plans',     adminPlanRoutes)
 app.use('/api/admin/stats',     adminStatsRoutes)
 app.use('/api/admin/logs',      adminLogRoutes)

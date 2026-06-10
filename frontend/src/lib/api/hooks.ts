@@ -26,6 +26,7 @@ export const KEYS = {
   adminLogs:         (q?: string) => `/admin/logs${q ?? ''}`,
   adminAIConfig:     '/admin/ai-config',
   adminPlatformSettings: '/admin/settings',
+  adminAccounts:     '/admin/admins',
 }
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
@@ -76,10 +77,9 @@ export const useGeneration = (id: string) => {
   )
 }
 
-export const useGenerations = (params?: { status?: string; framework?: string }) => {
-  const qs = params
-    ? `?${new URLSearchParams(params as Record<string, string>).toString()}`
-    : ''
+export const useGenerations = (params?: { status?: string; framework?: string; page?: number }) => {
+  const filtered = params ? Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== '')) : {}
+  const qs = Object.keys(filtered).length ? `?${new URLSearchParams(filtered as Record<string, string>).toString()}` : ''
   return useSWR(KEYS.generations(qs), () => generationsApi.list(params))
 }
 
@@ -111,10 +111,9 @@ export const useAdminPlans = () => {
   return useSWR(KEYS.adminPlans, adminApi.listPlans)
 }
 
-export const useAdminLogs = (params?: { action?: string; page?: number }) => {
-  const qs = params
-    ? `?${new URLSearchParams(params as Record<string, string>).toString()}`
-    : ''
+export const useAdminLogs = (params?: { action?: string; actionPrefix?: string; actor?: string; page?: number }) => {
+  const filtered = params ? Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== '')) : {}
+  const qs = Object.keys(filtered).length ? `?${new URLSearchParams(filtered as Record<string, string>).toString()}` : ''
   return useSWR(KEYS.adminLogs(qs), () => adminApi.listLogs(params))
 }
 
@@ -124,6 +123,10 @@ export const useAIConfig = () => {
 
 export const usePlatformSettings = () => {
   return useSWR(KEYS.adminPlatformSettings, adminApi.getPlatformSettings)
+}
+
+export const useAdminAccounts = () => {
+  return useSWR(KEYS.adminAccounts, adminApi.listAdmins)
 }
 
 // ── Cache invalidation helpers ────────────────────────────────────────────────

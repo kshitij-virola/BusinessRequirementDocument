@@ -8,10 +8,12 @@ const router = Router()
 router.use(authenticate, requireAdmin)
 
 router.get('/', async (req: AuthRequest, res: Response): Promise<void> => {
-  const { page = '1', limit = '50', action, userId } = req.query as Record<string, string>
+  const { page = '1', limit = '50', action, actionPrefix, userId, actor } = req.query as Record<string, string>
   const filter: Record<string, unknown> = {}
   if (action) filter.action = action
+  if (actionPrefix) filter.action = { $regex: `^${actionPrefix}\\.`, $options: 'i' }
   if (userId) filter.userId = userId
+  if (actor) filter.actor = { $regex: actor, $options: 'i' }
 
   const skip = (parseInt(page) - 1) * parseInt(limit)
   const [logs, total] = await Promise.all([

@@ -2,6 +2,7 @@ import passport from 'passport'
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20'
 import { Strategy as GitHubStrategy } from 'passport-github2'
 import { User } from '../models/User'
+import { AuditLog } from '../models/AuditLog'
 import { env } from './env'
 
 passport.use(new GoogleStrategy(
@@ -34,6 +35,7 @@ passport.use(new GoogleStrategy(
             isEmailVerified: true,
             avatar:          profile.photos?.[0]?.value,
           })
+          await AuditLog.create({ userId: user._id, actor: user.email, actorRole: 'user', action: 'user.register', entityId: String(user._id), entityType: 'User', metadata: { provider: 'google' } })
         }
       }
 
@@ -74,6 +76,7 @@ passport.use(new GitHubStrategy(
             isEmailVerified: !!email,
             avatar:          profile.photos?.[0]?.value,
           })
+          await AuditLog.create({ userId: user._id, actor: user.email, actorRole: 'user', action: 'user.register', entityId: String(user._id), entityType: 'User', metadata: { provider: 'github' } })
         }
       }
 

@@ -30,6 +30,7 @@ export interface IUser extends Document {
     usedBytes: number
     limitBytes: number
   }
+  permissions: string[]
   passwordResetToken?: string
   passwordResetExpires?: Date
   emailVerificationToken?: string
@@ -71,6 +72,7 @@ const userSchema = new Schema<IUser>(
       usedBytes:  { type: Number, default: 0 },
       limitBytes: { type: Number, default: PLAN_LIMITS.free.storageBytes },
     },
+    permissions:          { type: [String], default: [] },
     passwordResetToken:   { type: String, select: false },
     passwordResetExpires: { type: Date,   select: false },
     emailVerificationToken: { type: String, select: false },

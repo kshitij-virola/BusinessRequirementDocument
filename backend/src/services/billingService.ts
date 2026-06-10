@@ -62,7 +62,7 @@ export const billingService = {
           'credits.remaining': PLAN_LIMITS[plan].credits,
           'storage.limitBytes': PLAN_LIMITS[plan].storageBytes,
         })
-        await AuditLog.create({ userId, actor: 'stripe', actorRole: 'system', action: 'subscription.create', metadata: { plan } })
+        await AuditLog.create({ userId, actor: 'stripe', actorRole: 'system', action: 'subscription.create', entityId: String(userId), entityType: 'User', metadata: { plan } })
         break
       }
       case 'invoice.payment_failed': {
@@ -70,7 +70,11 @@ export const billingService = {
         const user = await User.findOne({ 'subscription.stripeCustomerId': customerId })
         if (user) {
           await User.findByIdAndUpdate(user._id, { 'subscription.status': 'past_due' })
-          await AuditLog.create({ userId: user._id, actor: 'stripe', actorRole: 'system', action: 'payment.failed' })
+          await AuditLog.create({
+            userId: user._id, actor: 'stripe', actorRole: 'system', action: 'payment.failed',
+            entityId: String(user._id), entityType: 'User',
+            metadata: { amountCents: obj.amount_due as number | undefined ?? 0, currency: obj.currency as string ?? 'usd', plan: user.subscription.plan },
+          })
         }
         break
       }
@@ -84,7 +88,7 @@ export const billingService = {
             'credits.remaining': PLAN_LIMITS.free.credits,
             'storage.limitBytes': PLAN_LIMITS.free.storageBytes,
           })
-          await AuditLog.create({ userId: user._id, actor: 'stripe', actorRole: 'system', action: 'subscription.cancel' })
+          await AuditLog.create({ userId: user._id, actor: 'stripe', actorRole: 'system', action: 'subscription.cancel', entityId: String(user._id), entityType: 'User' })
         }
         break
       }
@@ -94,7 +98,11 @@ export const billingService = {
         if (user) {
           const plan = user.subscription.plan as 'free' | 'pro' | 'agency'
           await creditService.reset(String(user._id), PLAN_LIMITS[plan].credits)
-          await AuditLog.create({ userId: user._id, actor: 'stripe', actorRole: 'system', action: 'payment.success' })
+          await AuditLog.create({
+            userId: user._id, actor: 'stripe', actorRole: 'system', action: 'payment.success',
+            entityId: String(user._id), entityType: 'User',
+            metadata: { amountCents: obj.amount_paid as number | undefined ?? 0, currency: obj.currency as string ?? 'usd', plan },
+          })
         }
         break
       }

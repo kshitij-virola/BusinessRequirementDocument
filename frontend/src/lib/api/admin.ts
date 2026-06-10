@@ -1,8 +1,8 @@
 import { api } from './client'
-import type { ApiResponse, AdminUser, AdminStats, AuditLogEntry, Plan, AIConfig, PlatformSettings } from './types'
+import type { ApiResponse, AdminUser, AdminAccount, AdminStats, AuditLogEntry, Plan, AIConfig, PlatformSettings } from './types'
 
 interface UserListParams { page?: number; limit?: number; search?: string; plan?: string; status?: string }
-interface LogListParams  { page?: number; limit?: number; action?: string; userId?: string }
+interface LogListParams  { page?: number; limit?: number; action?: string; actionPrefix?: string; userId?: string; actor?: string }
 
 export const adminApi = {
   // ── Stats ─────────────────────────────────────────────────────────────────
@@ -69,5 +69,25 @@ export const adminApi = {
 
   async savePlatformSettings(updates: Partial<PlatformSettings>): Promise<void> {
     await api.put('/admin/settings', updates)
+  },
+
+  // ── Admin accounts ────────────────────────────────────────────────────────
+  async listAdmins(): Promise<{ admins: AdminAccount[]; total: number }> {
+    const { data } = await api.get<ApiResponse<{ admins: AdminAccount[]; total: number }>>('/admin/admins')
+    return data.data
+  },
+
+  async createAdmin(body: { name: string; email: string; password: string; role: 'admin' | 'superadmin'; permissions: string[] }): Promise<AdminAccount> {
+    const { data } = await api.post<ApiResponse<AdminAccount>>('/admin/admins', body)
+    return data.data
+  },
+
+  async updateAdmin(id: string, body: { name?: string; role?: 'admin' | 'superadmin'; permissions?: string[] }): Promise<AdminAccount> {
+    const { data } = await api.patch<ApiResponse<AdminAccount>>(`/admin/admins/${id}`, body)
+    return data.data
+  },
+
+  async deleteAdmin(id: string): Promise<void> {
+    await api.delete(`/admin/admins/${id}`)
   },
 }
