@@ -36,7 +36,7 @@ export const VersionHistoryButton = ({ workspaceId }: VersionHistoryButtonProps)
               <div key={v._id} className="rounded-xl border border-border bg-background p-4 space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <GitBranch className="h-4 w-4 text-violet-400 shrink-0" />
+                    <GitBranch className="h-4 w-4 text-primary shrink-0" />
                     <span className="text-sm font-medium text-foreground">Version {v.version}</span>
                     {idx === 0 && <Badge variant="success">Current</Badge>}
                   </div>

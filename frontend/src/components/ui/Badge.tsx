@@ -4,7 +4,7 @@ import { cva, type VariantProps } from 'class-variance-authority'
 const badgeVariants = cva('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium', {
   variants: {
     variant: {
-      default: 'bg-violet-600/20 text-violet-400',
+      default: 'bg-primary/20 text-primary',
       success: 'bg-emerald-600/20 text-emerald-400',
       warning: 'bg-amber-600/20 text-amber-400',
       danger: 'bg-red-600/20 text-red-400',

@@ -15,7 +15,7 @@ const features = [
 ]
 
 const accentMap = {
-  violet: 'bg-violet-600/10 text-violet-400',
+  violet: 'bg-primary/10 text-primary',
   emerald: 'bg-emerald-600/10 text-emerald-400',
   amber: 'bg-amber-600/10 text-amber-400',
   blue: 'bg-blue-600/10 text-blue-400',
@@ -75,7 +75,7 @@ const LandingPage = async () => {
             <ChatPromptInput />
             <p className="mt-3 text-xs text-gray-600 text-center">
               Already have an account?{' '}
-              <Link href="/login" className="text-violet-400 hover:text-violet-300 transition-colors">Sign in</Link>
+              <Link href="/login" className="text-primary hover:text-primary-hover transition-colors">Sign in</Link>
             </p>
           </div>
         )}

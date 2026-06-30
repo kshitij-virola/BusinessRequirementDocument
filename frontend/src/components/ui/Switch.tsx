@@ -43,9 +43,9 @@ export const Switch = ({ checked, onChange, disabled = false, size = 'md', label
       onClick={() => !disabled && onChange(!checked)}
       className={cn(
         'relative inline-flex shrink-0 rounded-full transition-colors duration-200 ease-in-out',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#16162a]',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-card',
         c.track,
-        checked ? 'bg-violet-600' : 'bg-border',
+        checked ? 'bg-primary' : 'bg-border',
         disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
       )}
     >

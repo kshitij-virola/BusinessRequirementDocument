@@ -7,6 +7,8 @@ export type GenerationStatus = 'pending' | 'processing' | 'completed' | 'failed'
 export interface IGeneration extends Document {
   userId: mongoose.Types.ObjectId
   workspaceId: mongoose.Types.ObjectId
+  threadId?: string
+  projectId?: string
   version: number
   prompt: string
   framework: Framework
@@ -24,6 +26,7 @@ export interface IGeneration extends Document {
   aiProvider: string
   aiModel: string
   aiCostUsd: number
+  filesCount?: number
   errorMessage?: string
   processingTimeMs?: number
   createdAt: Date
@@ -34,6 +37,8 @@ const generationSchema = new Schema<IGeneration>(
   {
     userId:         { type: Schema.Types.ObjectId, ref: 'User',      required: true, index: true },
     workspaceId:    { type: Schema.Types.ObjectId, ref: 'Workspace', required: true, index: true },
+    threadId:       { type: String, index: true },
+    projectId:      { type: String, index: true },
     version:        { type: Number, required: true },
     prompt:         { type: String, required: true },
     framework:      { type: String, enum: ['react', 'vue', 'angular', 'html', 'wordpress'], required: true },
@@ -51,6 +56,7 @@ const generationSchema = new Schema<IGeneration>(
     aiProvider:     { type: String, default: 'openai' },
     aiModel:        { type: String, default: 'gpt-4o' },
     aiCostUsd:      { type: Number, default: 0 },
+    filesCount:     { type: Number },
     errorMessage:   { type: String },
     processingTimeMs: { type: Number },
   },

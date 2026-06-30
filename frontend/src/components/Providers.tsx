@@ -3,6 +3,7 @@ import { useRef } from 'react'
 import { Provider } from 'react-redux'
 import { SWRConfig } from 'swr'
 import { ThemeProvider } from 'next-themes'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { store } from '@/store'
 
 const swrConfig = {
@@ -27,13 +28,16 @@ const swrConfig = {
 
 const Providers = ({ children }: { children: React.ReactNode }) => {
   const storeRef = useRef<typeof store>(store)
+  const queryClientRef = useRef<QueryClient>(new QueryClient())
   return (
     <ThemeProvider attribute="class" defaultTheme="dark" disableTransitionOnChange>
-      <Provider store={storeRef.current}>
-        <SWRConfig value={swrConfig}>
-          {children}
-        </SWRConfig>
-      </Provider>
+      <QueryClientProvider client={queryClientRef.current}>
+        <Provider store={storeRef.current}>
+          <SWRConfig value={swrConfig}>
+            {children}
+          </SWRConfig>
+        </Provider>
+      </QueryClientProvider>
     </ThemeProvider>
   )
 }

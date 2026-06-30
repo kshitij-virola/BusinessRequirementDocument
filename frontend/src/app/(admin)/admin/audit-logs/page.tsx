@@ -104,12 +104,12 @@ const AuditLogsPage = () => {
             placeholder="Search actor..."
             value={actorSearch}
             onChange={e => handleActorInput(e.target.value)}
-            className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500 w-40"
+            className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary w-40"
           />
           <select
             value={filterValue}
             onChange={e => handleFilterChange(e.target.value)}
-            className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-violet-500"
+            className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
           >
             {FILTER_OPTIONS.map(o => (
               <option key={encodeMode(o.mode)} value={encodeMode(o.mode)}>{o.label}</option>

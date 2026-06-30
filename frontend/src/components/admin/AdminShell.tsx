@@ -69,8 +69,8 @@ const AdminNav = ({ role, onClose }: { role: UserRole; onClose?: () => void }) =
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
                 active
-                  ? 'bg-violet-600/20 text-violet-400'
-                  : 'text-gray-400 hover:bg-secondary hover:text-foreground'
+                  ? 'bg-primary/15 text-primary'
+                  : 'text-muted hover:bg-secondary hover:text-foreground'
               )}
             >
               <Icon className="h-4 w-4 shrink-0" />

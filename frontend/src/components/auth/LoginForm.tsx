@@ -63,7 +63,7 @@ const LoginForm = () => {
           <span />
           <Link
             href="/forgot-password"
-            className="text-sm text-violet-400 hover:text-violet-300 transition-colors"
+            className="text-sm text-primary hover:text-primary-hover transition-colors"
           >
             Forgot password?
           </Link>
@@ -78,7 +78,7 @@ const LoginForm = () => {
 
       <p className="text-center text-sm text-gray-500">
         Don&apos;t have an account?{' '}
-        <Link href="/signup" className="text-violet-400 hover:text-violet-300 font-medium transition-colors">
+        <Link href="/signup" className="text-primary hover:text-primary-hover font-medium transition-colors">
           Sign up
         </Link>
       </p>

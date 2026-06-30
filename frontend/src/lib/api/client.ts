@@ -57,6 +57,7 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 // ── Response interceptor ───────────────────────────────────────────────────────
 
 let isRefreshing = false
+let refreshFailed = false   // set after a failed refresh; prevents re-entry on SWR retries
 type QueueEntry = { resolve: (token: string) => void; reject: (err: unknown) => void }
 let queue: QueueEntry[] = []
 
@@ -74,10 +75,12 @@ api.interceptors.response.use(
     // Also skip the refresh cycle if:
     //  • this request already attempted a refresh (_retry flag)
     //  • the failing request IS the refresh endpoint (avoid infinite loop)
+    //  • a previous refresh already failed this session (refreshFailed gate)
     if (
       status !== 401 ||
       original._retry ||
-      url.includes('/auth/refresh')
+      url.includes('/auth/refresh') ||
+      refreshFailed
     ) {
       return Promise.reject(error)
     }
@@ -110,10 +113,13 @@ api.interceptors.response.use(
       original.headers.Authorization = `Bearer ${newToken}`
       return api(original)
     } catch (refreshError) {
-      // Refresh failed — clear local token then hit the Next.js clear-session
-      // route, which deletes the httpOnly session cookie before redirecting
-      // to /login. Without this, proxy.ts sees the cookie still set and
-      // bounces the user straight back to /dashboard → infinite loop.
+      // Refresh failed — set the gate so subsequent SWR retries skip the
+      // refresh cycle instead of hammering the endpoint. Clear the local token
+      // then hit the Next.js clear-session route, which deletes the httpOnly
+      // session cookie before redirecting to /login. Without this, proxy.ts
+      // sees the cookie still set and bounces the user straight back to
+      // /dashboard → infinite loop.
+      refreshFailed = true
       tokenStore.clear()
       rejectQueue(refreshError)
       if (typeof window !== 'undefined') {

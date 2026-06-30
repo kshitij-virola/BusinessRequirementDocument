@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { useAdminUsers, useAdminAccounts, useMe, KEYS } from '@/lib/api/hooks'
 import { adminApi } from '@/lib/api/admin'
-import type { AdminAccount } from '@/lib/api/types'
+import type { AdminAccount, MeResponse } from '@/lib/api/types'
 
 // ── Shared ──────────────────────────────────────────────────────────────────
 
@@ -40,11 +40,10 @@ const ADMIN_ROLE_LABEL: Record<string, string> = {
 
 // ── Users tab ────────────────────────────────────────────────────────────────
 
-const UsersTab = () => {
+const UsersTab = ({ me }: { me?: MeResponse }) => {
   const [search, setSearch] = useState('')
   const [planFilter, setPlanFilter] = useState('')
   const { data, isLoading } = useAdminUsers({ search: search || undefined, plan: planFilter || undefined })
-  const { data: me } = useMe()
   const [isPending, startTransition] = useTransition()
   const isSuperAdmin = me?.role === 'superadmin'
   const users = data?.users?.filter((user) => user._id !== me?._id && user.role !== 'superadmin') ?? []
@@ -54,14 +53,14 @@ const UsersTab = () => {
       if (action === 'suspend')  await adminApi.suspendUser(id)
       if (action === 'activate') await adminApi.activateUser(id)
       if (action === 'reset')    await adminApi.resetCredits(id)
-      mutate(KEYS.adminUsers())
+      mutate((key) => typeof key === 'string' && key.startsWith('/admin/users'))
     })
   }
 
   const handleRoleChange = (id: string, role: 'user' | 'admin') => {
     startTransition(async () => {
       await adminApi.changeUserRole(id, role)
-      mutate(KEYS.adminUsers())
+      mutate((key) => typeof key === 'string' && key.startsWith('/admin/users'))
     })
   }
 
@@ -72,12 +71,12 @@ const UsersTab = () => {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by name or email..."
-          className="flex-1 h-10 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+          className="flex-1 h-10 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary"
         />
         <select
           value={planFilter}
           onChange={(e) => setPlanFilter(e.target.value)}
-          className="h-10 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-violet-500"
+          className="h-10 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
         >
           <option value="">All Plans</option>
           <option value="free">Free</option>
@@ -118,7 +117,7 @@ const UsersTab = () => {
                         value={user.role}
                         disabled={isPending}
                         onChange={(e) => handleRoleChange(user._id, e.target.value as 'user' | 'admin')}
-                        className="rounded-md border border-border bg-secondary px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-violet-500 disabled:opacity-50"
+                        className="rounded-md border border-border bg-secondary px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
                       >
                         <option value="user">User</option>
                         <option value="admin">Admin</option>
@@ -308,7 +307,7 @@ const AdminAccountModal = ({
             value={form.role}
             onChange={e => set('role', e.target.value)}
             disabled={isPending}
-            className="h-10 w-full rounded-lg border border-border bg-secondary px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50"
+            className="h-10 w-full rounded-lg border border-border bg-secondary px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
           >
             <option value="admin">Admin</option>
             <option value="superadmin">Super Admin</option>
@@ -321,14 +320,14 @@ const AdminAccountModal = ({
             {ADMIN_PERMISSIONS.map(({ key, label }) => (
               <label
                 key={key}
-                className="flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-secondary px-3 py-2 hover:border-violet-500 transition-colors"
+                className="flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-secondary px-3 py-2 hover:border-primary transition-colors"
               >
                 <input
                   type="checkbox"
                   checked={form.permissions.includes(key)}
                   onChange={() => togglePermission(key)}
                   disabled={isPending}
-                  className="h-3.5 w-3.5 accent-violet-600"
+                  className="h-3.5 w-3.5 accent-primary"
                 />
                 <span className="text-xs text-foreground">{label}</span>
               </label>
@@ -355,9 +354,9 @@ const AdminAccountModal = ({
 
 // ── Admins tab ───────────────────────────────────────────────────────────────
 
-const AdminsTab = () => {
+const AdminsTab = ({ me }: { me?: MeResponse }) => {
   const { data, isLoading } = useAdminAccounts()
-  const admins = data?.admins ?? []
+  const admins = data?.admins?.filter((admin) => admin._id !== me?._id) ?? []
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<AdminAccount | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
@@ -528,8 +527,8 @@ const ManageUsersPage = () => {
               onClick={() => setTab(t)}
               className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px capitalize ${
                 tab === t
-                  ? "border-violet-500 text-violet-400"
-                  : "border-transparent text-gray-400 hover:text-foreground"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted hover:text-foreground"
               }`}
             >
               {t === "users" ? "Platform Users" : "Admin Users"}
@@ -538,7 +537,7 @@ const ManageUsersPage = () => {
         </div>
       )}
 
-      {tab === 'users' ? <UsersTab /> : <AdminsTab />}
+      {tab === 'users' ? <UsersTab me={me} /> : <AdminsTab me={me}/>}
     </div>
   )
 }

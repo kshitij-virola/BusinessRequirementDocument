@@ -30,7 +30,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             type={isPassword ? (showPassword ? 'text' : 'password') : type}
             className={cn(
               'h-10 w-full rounded-lg border border-border bg-secondary px-3 text-sm text-foreground placeholder:text-muted',
-              'focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent',
+              'focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent',
               'disabled:opacity-50 disabled:cursor-not-allowed',
               'transition-colors duration-200',
               error && 'border-red-500 focus:ring-red-500',

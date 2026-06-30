@@ -31,7 +31,7 @@ export function ChatPromptInput() {
 
   return (
     <form onSubmit={handleSubmit} className="w-full">
-      <div className="relative rounded-xl border border-border bg-card focus-within:border-violet-500/60 transition-colors">
+      <div className="relative rounded-xl border border-border bg-card focus-within:border-primary/60 transition-colors">
         <textarea
           value={prompt}
           onChange={e => setPrompt(e.target.value)}
@@ -60,7 +60,7 @@ export function ChatPromptInput() {
               <span className="hidden sm:inline">Upload image</span>
             </button>
             {images.length > 0 && (
-              <span className="flex items-center gap-1 rounded-md bg-violet-600/20 px-2 py-1 text-xs font-medium text-violet-300">
+              <span className="flex items-center gap-1 rounded-md bg-primary/20 px-2 py-1 text-xs font-medium text-primary">
                 {images.length} image{images.length > 1 ? 's' : ''}
                 <button type="button" onClick={removeImages} className="ml-0.5 hover:text-foreground transition-colors">
                   <X className="h-3 w-3" />

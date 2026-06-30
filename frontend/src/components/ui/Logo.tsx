@@ -17,7 +17,7 @@ const Logo = ({ className, size = 'md', href = '/' }: LogoProps) => {
   const content = (
     <span className={cn('font-bold tracking-tight', sizes[size], className)}>
       <span className="text-foreground">TROO</span>
-      <span className="text-violet-500"> AI</span>
+      <span className="text-primary"> AI</span>
     </span>
   )
 

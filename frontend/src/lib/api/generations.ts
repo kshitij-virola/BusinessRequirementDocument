@@ -5,11 +5,13 @@ interface GenerateParams {
   workspaceId: string
   prompt:      string
   framework:   string
-  inputMode:   'text' | 'figma' | 'image'
+  inputMode:   string
   figmaUrl?:   string
   images?:     File[]
   imageKey?:   string
   imageKeys?:  string[]
+  threadId?:   string
+  projectId?:  string
 }
 
 interface ListParams { page?: number; limit?: number; status?: string; framework?: string }
@@ -73,5 +75,14 @@ export const generationsApi = {
   async list(params: ListParams = {}): Promise<{ generations: Generation[]; total: number }> {
     const { data } = await api.get<ApiResponse<{ generations: Generation[]; total: number }>>('/generations', { params })
     return data.data
+  },
+
+  async complete(id: string, payload: {
+    status: 'completed' | 'failed'
+    projectId?: string
+    filesCount?: number
+    errorMessage?: string
+  }): Promise<void> {
+    await api.patch(`/generations/${id}/complete`, payload)
   },
 }

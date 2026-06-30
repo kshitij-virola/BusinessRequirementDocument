@@ -103,7 +103,7 @@ const AIConfigPage = () => {
           {providers.map((p) => (
             <div key={p.id} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-4 py-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-xs font-bold text-violet-400">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-xs font-bold text-primary">
                   {p.name[0]}
                 </div>
                 <div>
@@ -136,7 +136,7 @@ const AIConfigPage = () => {
             rows={5}
             value={systemPrompt}
             onChange={(e) => setSystemPrompt(e.target.value)}
-            className="w-full resize-none rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-colors"
+            className="w-full resize-none rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary transition-colors"
           />
         </div>
         <div className="flex items-center gap-3">

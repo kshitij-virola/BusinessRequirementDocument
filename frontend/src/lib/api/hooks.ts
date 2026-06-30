@@ -2,15 +2,19 @@
 import useSWR, { mutate } from 'swr'
 import { dashboardApi } from './dashboard'
 import { workspacesApi } from './workspaces'
+import { projectsApi } from './projects'
 import { generationsApi } from './generations'
 import { adminApi } from './admin'
 import { authApi } from './auth'
 import { billingApi } from './billing'
+import { tokenStore } from './client'
 
 // ── SWR keys ──────────────────────────────────────────────────────────────────
 
 export const KEYS = {
   me:                '/auth/me',
+  projects:          (q?: string) => `/projects${q ?? ''}`,
+  project:           (id: string) => `/projects/${id}`,
   dashboardStats:    '/dashboard/stats',
   recentActivity:    '/dashboard/recent-activity',
   creditUsage:       (p: string) => `/dashboard/credit-usage?period=${p}`,
@@ -31,8 +35,20 @@ export const KEYS = {
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
+const forceLogout = () => {
+  tokenStore.clear()
+  if (typeof window !== 'undefined') window.location.href = '/api/auth/clear-session'
+}
+
 export const useMe = () => {
-  return useSWR(KEYS.me, authApi.getMe, { revalidateOnFocus: false })
+  return useSWR(KEYS.me, authApi.getMe, {
+    revalidateOnFocus: false,
+    shouldRetryOnError: false,
+    onError: (error) => {
+      const status = error?.response?.status ?? error?.status
+      if (status === 401 || status === 403) forceLogout()
+    },
+  })
 }
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
@@ -49,11 +65,24 @@ export const useCreditUsage = (period: 'week' | 'month' = 'week') => {
   return useSWR(KEYS.creditUsage(period), () => dashboardApi.getCreditUsage(period))
 }
 
+// ── Projects ──────────────────────────────────────────────────────────────────
+
+export const useProjects = (status?: string) => {
+  const key = KEYS.projects(status ? `?status=${status}` : '')
+  return useSWR(key, () => projectsApi.list({ status }))
+}
+
+export const useProject = (id: string) => {
+  return useSWR(id ? KEYS.project(id) : null, () => projectsApi.get(id))
+}
+
 // ── Workspaces ────────────────────────────────────────────────────────────────
 
-export const useWorkspaces = (status?: string) => {
-  const key = KEYS.workspaces(status ? `?status=${status}` : '')
-  return useSWR(key, () => workspacesApi.list({ status }))
+export const useWorkspaces = (params?: { status?: string; projectId?: string; generations?: boolean }) => {
+  const filtered = params ? Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== '')) : {}
+  const qs = Object.keys(filtered).length ? `?${new URLSearchParams(filtered as Record<string, string>).toString()}` : ''
+  const key = KEYS.workspaces(qs)
+  return useSWR(key, () => workspacesApi.list(params))
 }
 
 export const useWorkspace = (id: string) => {
@@ -130,6 +159,10 @@ export const useAdminAccounts = () => {
 }
 
 // ── Cache invalidation helpers ────────────────────────────────────────────────
+
+export const invalidateProjects = async () => {
+  await mutate((key: unknown) => typeof key === 'string' && key.startsWith('/projects'))
+}
 
 export const invalidateWorkspaces = async () => {
   await mutate((key: unknown) => typeof key === 'string' && key.startsWith('/workspaces'))

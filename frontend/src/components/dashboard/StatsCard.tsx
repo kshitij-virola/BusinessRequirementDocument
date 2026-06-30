@@ -11,7 +11,7 @@ interface StatsCardProps {
 }
 
 const accentStyles = {
-  violet: 'bg-violet-600/10 text-violet-400',
+  violet: 'bg-primary/10 text-primary',
   emerald: 'bg-emerald-600/10 text-emerald-400',
   amber: 'bg-amber-600/10 text-amber-400',
   blue: 'bg-blue-600/10 text-blue-400',

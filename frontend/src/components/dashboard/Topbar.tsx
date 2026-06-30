@@ -14,8 +14,8 @@ const Topbar = ({ user, title }: TopbarProps) => {
     : 'U'
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-border bg-background px-6">
-      <h1 className="text-lg font-semibold text-foreground">{title ?? 'Dashboard'}</h1>
+    <header className="flex h-20 items-center justify-between border-b border-border bg-card/80 backdrop-blur-md px-6">
+      <h1 className="font-heading text-lg font-semibold text-foreground">{title ?? 'Dashboard'}</h1>
 
       <div className="flex items-center gap-4">
         {user?.creditsRemaining !== undefined && (
@@ -29,12 +29,12 @@ const Topbar = ({ user, title }: TopbarProps) => {
 
         <button
           type="button"
-          className="relative rounded-lg p-2 text-muted hover:bg-secondary hover:text-foreground transition-colors"
+          className="relative rounded-xl p-2 text-muted hover:bg-secondary hover:text-foreground transition-colors duration-150"
         >
           <Bell className="h-5 w-5" />
         </button>
 
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-semibold text-foreground">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">
           {initials}
         </div>
       </div>

@@ -44,12 +44,12 @@ const EditPlanModal = ({ plan, onClose }: { plan: Plan; onClose: () => void }) =
           onChange={(e) => setYearlyPrice(e.target.value)} />
         <label className="flex items-center gap-3 cursor-pointer">
           <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)}
-            className="h-4 w-4 rounded border-border bg-secondary text-violet-500 focus:ring-violet-500" />
+            className="h-4 w-4 rounded border-border bg-secondary accent-primary focus:ring-primary" />
           <span className="text-sm text-foreground/70">Plan active (visible to users)</span>
         </label>
         <label className="flex items-center gap-3 cursor-pointer">
           <input type="checkbox" checked={isPopular} onChange={(e) => setIsPopular(e.target.checked)}
-            className="h-4 w-4 rounded border-border bg-secondary text-violet-500 focus:ring-violet-500" />
+            className="h-4 w-4 rounded border-border bg-secondary accent-primary focus:ring-primary" />
           <span className="text-sm text-foreground/70">Mark as Most Popular</span>
         </label>
         {error && <p className="text-sm text-red-400">{error}</p>}

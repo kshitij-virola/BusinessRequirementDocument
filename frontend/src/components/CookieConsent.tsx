@@ -39,7 +39,7 @@ export const CookieConsent = () => {
       <div className="mx-auto max-w-2xl rounded-2xl border border-border bg-card shadow-2xl p-4 sm:p-5">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex items-center gap-2">
-            <Cookie className="h-5 w-5 text-violet-400 shrink-0" />
+            <Cookie className="h-5 w-5 text-primary shrink-0" />
             <p className="text-sm font-semibold text-foreground">We use cookies</p>
           </div>
           <button type="button" onClick={rejectOptional}
@@ -51,7 +51,7 @@ export const CookieConsent = () => {
         <p className="text-sm text-gray-400 mb-4">
           We use cookies to improve your experience, analyze site traffic, and personalize content.
           By clicking &ldquo;Accept All&rdquo;, you consent to our use of cookies.{' '}
-          <Link href="/privacy" className="text-violet-400 hover:text-violet-300 underline">Privacy Policy</Link>
+          <Link href="/privacy" className="text-primary hover:text-primary-hover underline">Privacy Policy</Link>
         </p>
 
         {showDetails && (

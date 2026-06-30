@@ -35,7 +35,7 @@ const DashboardPage = () => {
           <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dashboard</h1>
           <p className="text-sm text-gray-400 mt-0.5">Welcome back! Here&apos;s your overview.</p>
         </div>
-        <Link href="/dashboard/workspaces/new">
+        <Link href="/workspaces/new">
           <Button className="w-full sm:w-auto">
             <Zap className="h-4 w-4" />
             New Chat
@@ -44,15 +44,15 @@ const DashboardPage = () => {
       </div>
 
       {/* Subscription banner */}
-      <div className="rounded-xl border border-violet-500/30 bg-violet-600/10 p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="rounded-xl border border-primary/30 bg-primary/10 p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <CheckCircle2 className="h-5 w-5 text-violet-400 shrink-0" />
+          <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
           <div>
             <p className="text-sm font-medium text-foreground">{planLabel}</p>
             <p className="text-xs text-gray-400">{stats?.creditsRemaining ?? 0} credits remaining this month</p>
           </div>
         </div>
-        <Link href="/dashboard/billing" className="self-start sm:self-auto">
+        <Link href="/billing" className="self-start sm:self-auto">
           <Button variant="outline" size="sm">Upgrade Plan</Button>
         </Link>
       </div>

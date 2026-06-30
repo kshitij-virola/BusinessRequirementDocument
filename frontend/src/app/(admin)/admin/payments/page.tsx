@@ -76,7 +76,7 @@ const PaymentsPage = () => {
           <select
             value={actionFilter}
             onChange={e => { setActionFilter(e.target.value); setPage(1) }}
-            className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-violet-500">
+            className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
             {PAYMENT_ACTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
           <Button variant="secondary" size="sm" disabled={logs.length === 0} onClick={exportCsv}>Export CSV</Button>

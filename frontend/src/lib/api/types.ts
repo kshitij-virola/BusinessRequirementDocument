@@ -70,10 +70,23 @@ export interface CreditUsagePoint {
   count:   number
 }
 
+// ── Projects ──────────────────────────────────────────────────────────────────
+
+export interface Project {
+  _id:            string
+  name:           string
+  description?:   string
+  status:         'active' | 'archived' | 'deleted'
+  workspaceCount: number
+  createdAt:      string
+  updatedAt:      string
+}
+
 // ── Workspaces ────────────────────────────────────────────────────────────────
 
 export interface Workspace {
   _id:              string
+  projectId?:       string
   name:             string
   framework:        string
   status:           'active' | 'archived' | 'deleted'
@@ -99,6 +112,8 @@ export interface WorkspaceVersion {
 export interface Generation {
   _id:             string
   workspaceId:     string
+  threadId?:       string
+  projectId?:      string
   version:         number
   prompt:          string
   framework:       string
@@ -111,6 +126,7 @@ export interface Generation {
   creditsUsed:     number
   aiProvider:      string
   aiModel:         string
+  filesCount?:     number
   errorMessage?:   string
   processingTimeMs?: number
   createdAt:       string

@@ -63,7 +63,7 @@ export const WorkspaceActionsMenu = ({ workspaceId, name, status }: WorkspaceAct
         await workspacesApi.remove(workspaceId)
         await invalidateWorkspaces()
         setDeleteOpen(false)
-        router.push('/dashboard/workspaces')
+        router.push('/workspaces')
       } catch {
         setError('Failed to delete workspace.')
       }

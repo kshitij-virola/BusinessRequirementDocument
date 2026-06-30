@@ -1,8 +1,8 @@
 import { api } from './client'
 import type { ApiResponse, Workspace, WorkspaceVersion } from './types'
 
-interface ListParams { status?: string; page?: number; limit?: number }
-interface CreateParams { name: string; framework: string; description?: string }
+interface ListParams { status?: string; page?: number; limit?: number; projectId?: string }
+interface CreateParams { name: string; framework: string; description?: string; projectId?: string }
 interface UpdateParams { name?: string; status?: 'active' | 'archived' }
 
 export const workspacesApi = {

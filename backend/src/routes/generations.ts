@@ -4,11 +4,12 @@ import multer from 'multer'
 import { Generation } from '../models/Generation'
 import { Workspace } from '../models/Workspace'
 import { AuditLog } from '../models/AuditLog'
+import { User } from '../models/User'
 import { authenticate, AuthRequest } from '../middleware/auth'
 import { checkCredits } from '../middleware/creditCheck'
 import { validate } from '../middleware/validate'
 import { success, error, created } from '../utils/apiResponse'
-import { generationQueue } from '../queue/generationQueue'
+import { creditService } from '../services/creditService'
 import { storageService } from '../services/storageService'
 
 const upload = multer({
@@ -63,6 +64,8 @@ const generateSchema = z.object({
   figmaUrl:    z.string().url().optional(),
   imageKey:    z.string().optional(),
   imageKeys:   z.array(z.string()).max(10).optional(),
+  threadId:    z.string().optional(),
+  projectId:   z.string().optional(),
 })
 
 // POST /api/generations — enqueue a new generation
@@ -76,6 +79,8 @@ router.post('/', checkCredits('textGeneration'), validate(generateSchema), async
   const gen = await Generation.create({
     userId,
     workspaceId: req.body.workspaceId,
+    threadId:  req.body.threadId,
+    projectId: req.body.projectId,
     version,
     prompt:    req.body.prompt,
     framework: req.body.framework,
@@ -88,10 +93,53 @@ router.post('/', checkCredits('textGeneration'), validate(generateSchema), async
   })
 
   await Workspace.findByIdAndUpdate(req.body.workspaceId, { $inc: { currentVersion: 1, totalGenerations: 1 } })
-  await generationQueue.add('generate', { generationId: String(gen._id), userId }, { attempts: 3, backoff: { type: 'exponential', delay: 5000 } })
-
   await AuditLog.create({ userId, actor: req.user!.email, actorRole: req.user!.role, action: 'generation.start', entityId: String(gen._id), entityType: 'Generation' })
   created(res, { generationId: gen._id, status: 'pending' })
+})
+
+// PATCH /api/generations/:id/complete — called by the frontend after the outer API (SSE) finishes
+const completeSchema = z.object({
+  status:       z.enum(['completed', 'failed']),
+  projectId:    z.string().optional(),
+  filesCount:   z.number().int().nonnegative().optional(),
+  errorMessage: z.string().optional(),
+})
+
+router.patch('/:id/complete', validate(completeSchema), async (req: AuthRequest, res: Response): Promise<void> => {
+  const userId = req.user!.userId
+  const gen = await Generation.findOne({ _id: req.params.id, userId })
+  if (!gen) { error(res, 'Generation not found', 404); return }
+
+  // Idempotency guard: only process if the generation is still pending.
+  // A second call (e.g. duplicate SSE event) is silently accepted to avoid
+  // double-deducting or double-refunding credits.
+  if (gen.status !== 'pending') {
+    success(res, { generationId: gen._id, status: gen.status })
+    return
+  }
+
+  const { status, projectId, filesCount, errorMessage } = req.body as z.infer<typeof completeSchema>
+  const processingTimeMs = Date.now() - new Date(gen.createdAt).getTime()
+
+  await Generation.findByIdAndUpdate(gen._id, {
+    status,
+    ...(projectId              && { projectId }),
+    ...(filesCount !== undefined && { filesCount }),
+    ...(errorMessage           && { errorMessage }),
+    processingTimeMs,
+  })
+
+  const user = await User.findById(userId)
+  if (status === 'completed') {
+    // Credits are only deducted on success. The POST /generations route checks
+    // balance but does NOT deduct, so there is nothing to refund on failure.
+    await creditService.deduct(userId, gen.creditsUsed, `generation:${gen._id}`)
+    await AuditLog.create({ userId, actor: user?.email ?? userId, actorRole: user?.role ?? 'user', action: 'generation.complete', entityId: String(gen._id), entityType: 'Generation', metadata: { projectId, filesCount, processingTimeMs } })
+  } else {
+    await AuditLog.create({ userId, actor: user?.email ?? userId, actorRole: user?.role ?? 'user', action: 'generation.fail', entityId: String(gen._id), entityType: 'Generation', metadata: { errorMessage } })
+  }
+
+  success(res, { generationId: gen._id, status })
 })
 
 // GET /api/generations/:id

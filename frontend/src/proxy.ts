@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { decryptForProxy } from '@/lib/session-proxy'
 
-const protectedRoutes = ['/dashboard', '/dashboard/workspaces', '/dashboard/projects', '/dashboard/billing', '/dashboard/analytics', '/dashboard/settings']
+const protectedRoutes = ['/dashboard', '/workspaces', '/projects', '/billing', '/analytics', '/settings']
 const adminRoutes = ['/admin']
 const publicRoutes = ['/login', '/signup', '/forgot-password', '/']
 

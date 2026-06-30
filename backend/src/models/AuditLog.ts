@@ -3,6 +3,7 @@ import mongoose, { Document, Schema } from 'mongoose'
 export type AuditAction =
   | 'user.register' | 'user.login' | 'user.logout' | 'user.password_reset' | 'user.deactivate'
   | 'workspace.create' | 'workspace.rename' | 'workspace.archive' | 'workspace.delete'
+  | 'project.create' | 'project.update' | 'project.archive' | 'project.delete'
   | 'generation.start' | 'generation.complete' | 'generation.fail'
   | 'credits.deduct' | 'credits.reset'
   | 'subscription.create' | 'subscription.upgrade' | 'subscription.cancel'

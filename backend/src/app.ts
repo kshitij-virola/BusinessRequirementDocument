@@ -16,11 +16,12 @@ import { initSocket } from './socket'
 import { initGenerationQueue } from './queue/generationQueue'
 
 // Routes
-import authRoutes         from './routes/auth'
-import workspaceRoutes    from './routes/workspaces'
-import generationRoutes   from './routes/generations'
-import dashboardRoutes    from './routes/dashboard'
-import billingRoutes      from './routes/billing'
+import authRoutes          from './routes/auth'
+import workspaceRoutes     from './routes/workspaces'
+import projectRoutes       from './routes/projects'
+import generationRoutes    from './routes/generations'
+import dashboardRoutes     from './routes/dashboard'
+import billingRoutes       from './routes/billing'
 import adminUserRoutes     from './routes/admin/users'
 import adminAdminRoutes    from './routes/admin/admins'
 import adminPlanRoutes     from './routes/admin/plans'
@@ -87,11 +88,12 @@ app.use('/api/auth', authLimiter)
 app.get('/health', (_req, res) => res.json({ status: 'ok', env: env.nodeEnv }))
 
 // ── API routes ─────────────────────────────────────────────────────────────────
-app.use('/api/auth',         authRoutes)
-app.use('/api/workspaces',   workspaceRoutes)
-app.use('/api/generations',  generationRoutes)
-app.use('/api/dashboard',    dashboardRoutes)
-app.use('/api/billing',      billingRoutes)
+app.use('/api/auth',            authRoutes)
+app.use('/api/workspaces',      workspaceRoutes)
+app.use('/api/projects',        projectRoutes)
+app.use('/api/generations',     generationRoutes)
+app.use('/api/dashboard',       dashboardRoutes)
+app.use('/api/billing',         billingRoutes)
 app.use('/api/admin/users',     adminUserRoutes)
 app.use('/api/admin/admins',    adminAdminRoutes)
 app.use('/api/admin/plans',     adminPlanRoutes)

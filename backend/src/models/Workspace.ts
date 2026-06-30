@@ -5,6 +5,7 @@ export type WorkspaceStatus = 'active' | 'archived' | 'deleted'
 
 export interface IWorkspace extends Document {
   userId: mongoose.Types.ObjectId
+  projectId?: mongoose.Types.ObjectId
   name: string
   framework: Framework
   status: WorkspaceStatus
@@ -18,6 +19,7 @@ export interface IWorkspace extends Document {
 const workspaceSchema = new Schema<IWorkspace>(
   {
     userId:            { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    projectId:         { type: Schema.Types.ObjectId, ref: 'Project', index: true },
     name:              { type: String, required: true, trim: true },
     framework:         { type: String, enum: ['react', 'vue', 'angular', 'html', 'wordpress'], required: true },
     status:            { type: String, enum: ['active', 'archived', 'deleted'], default: 'active' },

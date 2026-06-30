@@ -61,7 +61,7 @@ export const LimitModal = ({ open, onClose, limitType, current, max, plan }: Lim
         </p>
 
         <div className="flex gap-2 pt-1">
-          <Link href="/dashboard/billing" className="flex-1">
+          <Link href="/billing" className="flex-1">
             <Button fullWidth onClick={onClose}>Upgrade Plan</Button>
           </Link>
           <Button variant="ghost" onClick={onClose} className="flex-1">Maybe Later</Button>

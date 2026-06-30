@@ -14,24 +14,24 @@ import SignOutButton from '@/components/auth/SignOutButton'
 import { cn } from '@/lib/utils'
 
 const navItems = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'Workspaces', href: '/dashboard/workspaces', icon: MessageSquare },
-  { label: 'Projects', href: '/dashboard/projects', icon: FolderOpen },
-  { label: 'Billing', href: '/dashboard/billing', icon: CreditCard },
-  { label: 'Analytics', href: '/dashboard/analytics', icon: BarChart2 },
-  { label: 'Settings', href: '/dashboard/settings', icon: Settings },
+  { label: 'Dashboard', href: '/dashboard',            icon: LayoutDashboard },
+  { label: 'Workspaces', href: '/workspaces', icon: MessageSquare   },
+  { label: 'Projects',   href: '/projects',   icon: FolderOpen      },
+  { label: 'Billing',    href: '/billing',    icon: CreditCard      },
+  { label: 'Analytics',  href: '/analytics',  icon: BarChart2       },
+  { label: 'Settings',   href: '/settings',   icon: Settings        },
 ]
 
 export const Sidebar = () => {
   const pathname = usePathname()
 
   return (
-    <aside className="flex h-full w-64 flex-col border-r border-border bg-background">
-      <div className="flex h-16 items-center px-6 border-b border-border">
+    <aside className="flex h-full w-64 flex-col border-r border-border bg-card">
+      <div className="flex h-20 items-center px-6 border-b border-border">
         <Logo size="md" />
       </div>
 
-      <nav className="flex-1 space-y-1 px-3 py-4">
+      <nav className="flex-1 space-y-0.5 px-3 py-4">
         {navItems.map(({ label, href, icon: Icon }) => {
           const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
           return (
@@ -39,13 +39,13 @@ export const Sidebar = () => {
               key={href}
               href={href}
               className={cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-150',
                 active
-                  ? 'bg-violet-600/20 text-violet-400'
-                  : 'text-gray-400 hover:bg-secondary hover:text-foreground'
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted hover:bg-secondary hover:text-foreground'
               )}
             >
-              <Icon className="h-4 w-4 shrink-0" />
+              <Icon className={cn('h-4 w-4 shrink-0', active ? 'text-primary' : 'text-gray-400')} />
               {label}
             </Link>
           )
@@ -53,7 +53,7 @@ export const Sidebar = () => {
       </nav>
 
       <div className="border-t border-border p-3">
-        <SignOutButton className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-400 hover:bg-secondary hover:text-red-400 transition-colors" />
+        <SignOutButton className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted hover:bg-secondary hover:text-error transition-colors duration-150" />
       </div>
     </aside>
   )

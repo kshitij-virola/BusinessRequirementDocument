@@ -1,5 +1,6 @@
 import { Router, Response } from 'express'
 import { Workspace } from '../models/Workspace'
+import { Project } from '../models/Project'
 import { Generation } from '../models/Generation'
 import { authenticate, AuthRequest } from '../middleware/auth'
 import { User } from '../models/User'
@@ -14,8 +15,8 @@ router.get('/stats', async (req: AuthRequest, res: Response): Promise<void> => {
 
   const [user, totalProjects, activeProjects, totalGenerations, downloads, failedGenerations] = await Promise.all([
     User.findById(userId),
-    Workspace.countDocuments({ userId, status: { $ne: 'deleted' } }),
-    Workspace.countDocuments({ userId, status: 'active' }),
+    Project.countDocuments({ userId, status: { $ne: 'deleted' } }),
+    Project.countDocuments({ userId, status: 'active' }),
     Generation.countDocuments({ userId }),
     Generation.countDocuments({ userId, zipUrl: { $exists: true } }),
     Generation.countDocuments({ userId, status: 'failed' }),
