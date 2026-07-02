@@ -16,7 +16,7 @@ import { useMe } from '@/lib/api/hooks'
 // ── Nav config ────────────────────────────────────────────────────────────────
 
 const navItems = [
-  { label: 'Dashboard',   href: '/dashboard',            icon: LayoutDashboard },
+  { label: 'Dashboard',   href: '/dashboard',  icon: LayoutDashboard },
   { label: 'Workspaces',  href: '/workspaces', icon: MessageSquare   },
   { label: 'Projects',    href: '/projects',   icon: FolderOpen      },
   { label: 'Billing',     href: '/billing',    icon: CreditCard      },
@@ -25,7 +25,7 @@ const navItems = [
 ]
 
 const pageTitles: Record<string, string> = {
-  '/dashboard':              'Dashboard',
+  '/dashboard':    'Dashboard',
   '/workspaces':   'Workspaces',
   '/projects':     'Projects',
   '/billing':      'Billing',
@@ -35,11 +35,12 @@ const pageTitles: Record<string, string> = {
 
 const usePageTitle = () => {
   const pathname = usePathname()
-  if (pathname.startsWith('/workspaces/new'))     return 'New Chat'
-  if (pathname.startsWith('/workspaces/chat'))     return 'New Chat'
-  if (pathname.startsWith('/workspaces/'))        return 'Workspace'
-  if (pathname.startsWith('/projects/new'))       return 'New Project'
-  if (pathname.match(/\/dashboard\/projects\/[^/]+$/))     return 'Project'
+  if (pathname.startsWith('/workspaces/new'))       return 'New Chat'
+  else if (pathname.startsWith('/workspaces/chat')) return 'New Chat'
+  else if (pathname.startsWith('/thread'))          return 'Chat'
+  else if (pathname.startsWith('/workspaces/'))     return 'Workspace'
+  else if (pathname.startsWith('/projects/new'))    return 'New Project'
+  else if (pathname.match(/\/dashboard\/projects\/[^/]+$/)) return 'Project'
   return pageTitles[pathname] ?? 'Dashboard'
 }
 

@@ -35,7 +35,7 @@ const DashboardPage = () => {
           <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dashboard</h1>
           <p className="text-sm text-gray-400 mt-0.5">Welcome back! Here&apos;s your overview.</p>
         </div>
-        <Link href="/workspaces/new">
+        <Link href="/workspaces/chat">
           <Button className="w-full sm:w-auto">
             <Zap className="h-4 w-4" />
             New Chat

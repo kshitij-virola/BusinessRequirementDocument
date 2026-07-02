@@ -14,7 +14,7 @@ import SignOutButton from '@/components/auth/SignOutButton'
 import { cn } from '@/lib/utils'
 
 const navItems = [
-  { label: 'Dashboard', href: '/dashboard',            icon: LayoutDashboard },
+  { label: 'Dashboard',  href: '/dashboard',  icon: LayoutDashboard },
   { label: 'Workspaces', href: '/workspaces', icon: MessageSquare   },
   { label: 'Projects',   href: '/projects',   icon: FolderOpen      },
   { label: 'Billing',    href: '/billing',    icon: CreditCard      },

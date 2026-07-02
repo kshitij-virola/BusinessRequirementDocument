@@ -14,12 +14,14 @@ import { logger } from './utils/logger'
 import { errorHandler, notFound } from './middleware/errorHandler'
 import { initSocket } from './socket'
 import { initGenerationQueue } from './queue/generationQueue'
+import { createPreviewProxy } from './services/preview/proxyMiddleware'
 
 // Routes
 import authRoutes          from './routes/auth'
 import workspaceRoutes     from './routes/workspaces'
 import projectRoutes       from './routes/projects'
 import generationRoutes    from './routes/generations'
+import previewRoutes       from './routes/preview'
 import dashboardRoutes     from './routes/dashboard'
 import billingRoutes       from './routes/billing'
 import adminUserRoutes     from './routes/admin/users'
@@ -32,6 +34,14 @@ import adminSettingsRoutes from './routes/admin/platformSettings'
 
 const app = express()
 const server = http.createServer(app)
+
+// ── Preview reverse proxy ──────────────────────────────────────────────────────
+// Mounted at the root (not '/preview') so `req.url` keeps its full path for base-aware
+// dev servers — see proxyMiddleware.ts. Also ahead of helmet/CORS/body-parsing: proxied
+// dev-server traffic (arbitrary generated HTML/JS/CSS) shouldn't inherit API-oriented
+// CSP/frame-guard headers (which would block iframe embedding) or have its body stream
+// consumed by express.json(). Requests outside `/preview/<key>/...` fall through untouched.
+app.use(createPreviewProxy(server))
 
 // ── Security & parsing ─────────────────────────────────────────────────────────
 app.use(helmet())
@@ -92,6 +102,7 @@ app.use('/api/auth',            authRoutes)
 app.use('/api/workspaces',      workspaceRoutes)
 app.use('/api/projects',        projectRoutes)
 app.use('/api/generations',     generationRoutes)
+app.use('/api/preview',         previewRoutes)
 app.use('/api/dashboard',       dashboardRoutes)
 app.use('/api/billing',         billingRoutes)
 app.use('/api/admin/users',     adminUserRoutes)

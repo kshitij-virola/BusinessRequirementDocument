@@ -70,7 +70,7 @@ const ProjectDetailPage = ({ params: paramsPromise }: { params: Promise<{ id: st
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Link href={`/workspaces/new?projectId=${project._id}`}>
+          <Link href={`/workspaces/chat?projectId=${project._id}`}>
             <Button size="sm">
               <Plus className="h-4 w-4" />
               New Workspace
@@ -107,7 +107,7 @@ const ProjectDetailPage = ({ params: paramsPromise }: { params: Promise<{ id: st
             </Link>
           ))}
 
-          <Link href={`/workspaces/new?projectId=${project._id}`}>
+          <Link href={`/workspaces/chat?projectId=${project._id}`}>
             <div className="rounded-xl border border-dashed border-border p-4 hover:border-primary/40 hover:bg-secondary transition-all cursor-pointer flex items-center justify-center gap-2 text-gray-500 hover:text-primary min-h-[90px]">
               <Plus className="h-4 w-4" />
               <span className="text-sm">Add Workspace</span>

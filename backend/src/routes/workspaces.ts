@@ -28,7 +28,6 @@ const updateSchema = z.object({
 // GET /api/workspaces
 router.get('/', async (req: AuthRequest, res: Response): Promise<void> => {
   const { status, projectId, page = '1', limit = '20', generations } = req.query as Record<string, string>
-  console.log("🚀 ~ req.query :", req.query.generations)
   const filter: Record<string, unknown> = { userId: req.user!.userId, status: { $ne: 'deleted' } }
   if (status) filter.status = status
   if (projectId) filter.projectId = projectId
@@ -39,7 +38,6 @@ router.get('/', async (req: AuthRequest, res: Response): Promise<void> => {
     Workspace.countDocuments(filter),
   ])
 
-  console.log("🚀 ~ includeGenerations:", generations)
   if (generations === 'true') {
     const workspaceIds = workspaces.map((w) => w._id)
     const gens = await Generation.find({ workspaceId: { $in: workspaceIds }, userId: req.user!.userId })

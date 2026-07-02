@@ -18,12 +18,17 @@ import {
   Folder,
   FolderOpen,
   X,
+  Play,
+  Square,
+  AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
 import { cn, modeToFramework, deriveInputMode } from "@/lib/utils";
 import { workspacesApi } from "@/lib/api/workspaces";
 import { generationsApi } from "@/lib/api/generations";
 import { invalidateWorkspaces, invalidateDashboard } from "@/lib/api/hooks";
+import { previewApi } from "@/lib/api/preview";
+import type { PreviewStatusResponse } from "@/lib/api/preview";
 import SyntaxHighlighter from "react-syntax-highlighter";
 import { atomOneDark } from "react-syntax-highlighter/dist/esm/styles/hljs";
 
@@ -230,6 +235,405 @@ function buildPreviewHtml(
 
 type ViewMode = "code" | "preview";
 
+function stripImports(code: string): string {
+  return code
+    .replace(/import\s+(?:type\s+)?[\s\S]*?from\s+['"][^'"]+['"];?/g, "")
+    .replace(/import\s+['"][^'"]+['"];?/g, "");
+}
+
+function buildReactPreviewHtml(contentMap: Map<string, string>): string {
+  const cssContent = [...contentMap.entries()]
+    .filter(([path]) => /\.css$/i.test(path))
+    .map(([, c]) => c)
+    .join("\n");
+
+  const tsxFiles = [...contentMap.entries()]
+    .filter(
+      ([path]) =>
+        /\.(tsx?|jsx?)$/i.test(path) &&
+        !/\.d\.ts$/i.test(path) &&
+        !/node_modules/i.test(path),
+    )
+    .sort(([a], [b]) => {
+      const aEntry = /\/(index|main)\.(tsx?|jsx?)$/i.test(a);
+      const bEntry = /\/(index|main)\.(tsx?|jsx?)$/i.test(b);
+      return aEntry === bEntry ? a.localeCompare(b) : aEntry ? 1 : -1;
+    });
+
+  // Collect every uppercase-leading identifier from source as a component candidate.
+  // eval() inside new Function sees the function's own local scope, so this
+  // reliably finds components regardless of their name.
+  // Seed with common AI-generated component names as safe fallbacks.
+  const seen = new Set<string>(["__defaultExport__", "App", "Home", "Page", "Main", "Root"]);
+  const candidates: string[] = ["__defaultExport__", "App", "Home", "Page", "Main", "Root"];
+  const push = (n: string) => {
+    if (/^[A-Z]/.test(n) && !seen.has(n)) { seen.add(n); candidates.push(n); }
+  };
+  for (const [, src] of tsxFiles) {
+    // export default function/class Name (no ^ so indented declarations are also found)
+    src.replace(/export\s+default\s+(?:function|class)\s+([A-Z]\w*)/g,
+      (_, n) => { push(n); return _; });
+    // export default Name (bare identifier re-export)
+    src.replace(/export\s+default\s+([A-Z]\w*)\s*[;({[\n]/g,
+      (_, n) => { push(n); return _; });
+    // export function/const/class/let/var Name
+    src.replace(/export\s+(?:function|const|class|let|var)\s+([A-Z]\w*)/g,
+      (_, n) => { push(n); return _; });
+    // any const/let/var/function/class Name — drop ^ so indented declarations match
+    src.replace(/(?:const|let|var|function|class)\s+([A-Z]\w*)/g,
+      (_, n) => { push(n); return _; });
+  }
+
+  const combinedScript = tsxFiles
+    .map(([, content]) =>
+      stripImports(content)
+        .replace(
+          /^export\s+\{\s*(\w+)\s+as\s+default(?:\s*,[^}]*)?\s*\}\s*;?/gm,
+          "var __defaultExport__ = $1;",
+        )
+        .replace(/^export\s+default\s+/gm, "var __defaultExport__ = ")
+        .replace(/^export\s+\{[^}]*\}\s*;?\s*$/gm, "")
+        .replace(/^export\s+(?!default)/gm, ""),
+    )
+    .join("\n\n");
+
+  const encodedSrc = JSON.stringify(combinedScript);
+  const encodedNames = JSON.stringify(candidates);
+  // Generate direct typeof checks for each candidate.
+  // Embedding variable names as literal identifiers (not eval strings) works
+  // reliably in all JS modes, including Babel's "use strict" output.
+  const candidateChecks = candidates
+    .map(n => `\nif(typeof ${n}==="function")return ${n};`)
+    .join("");
+  const encodedChecks = JSON.stringify(candidateChecks);
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<style>*{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif}${cssContent}</style>
+</head>
+<body>
+<div id="root"><p style="padding:12px;color:#888;font-size:13px">Loading…</p></div>
+<script id="__src__" type="application/json">${encodedSrc}</script>
+<script id="__names__" type="application/json">${encodedNames}</script>
+<script id="__checks__" type="application/json">${encodedChecks}</script>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script>
+window.addEventListener('load', function () {
+  var rootEl = document.getElementById('root');
+  function showErr(msg) {
+    rootEl.innerHTML = '<pre style="padding:12px;margin:0;color:#ef4444;font-size:12px;white-space:pre-wrap"><b>Preview error</b>\\n' + String(msg) + '</pre>';
+  }
+  if (typeof React === 'undefined') return showErr('React CDN failed to load');
+  if (typeof ReactDOM === 'undefined') return showErr('ReactDOM CDN failed to load');
+  if (typeof Babel === 'undefined') return showErr('Babel CDN failed to load');
+
+  var src, names, checks;
+  try { src = JSON.parse(document.getElementById('__src__').textContent); }
+  catch (e) { return showErr('Source parse error: ' + e.message); }
+  try { names = JSON.parse(document.getElementById('__names__').textContent); }
+  catch (e) { names = ['__defaultExport__', 'App']; }
+  try { checks = JSON.parse(document.getElementById('__checks__').textContent); }
+  catch (e) { checks = '\\nif(typeof __defaultExport__==="function")return __defaultExport__;\\nif(typeof App==="function")return App;'; }
+
+  var prelude = 'var {useState,useEffect,useRef,useCallback,useMemo,useContext,createContext,Fragment}=React;\\n';
+  var compiled;
+  try {
+    compiled = Babel.transform(prelude + src, {
+      presets: ['react', 'typescript'],
+      filename: 'app.tsx',
+      sourceType: 'script',
+    });
+  } catch (e) { return showErr('Compile error: ' + e.message); }
+
+  // Append direct typeof checks (no eval) so variable lookup works regardless
+  // of whether Babel emits "use strict" or how const/let are scoped.
+  var RC;
+  try {
+    var factory = new Function('React', 'ReactDOM',
+      compiled.code + checks + '\\nreturn null;'
+    );
+    RC = factory(React, ReactDOM);
+  } catch (e) { return showErr('Runtime error: ' + e.message); }
+
+  if (!RC) return showErr(
+    'No renderable component found.\\n' +
+    'Tried: ' + names.slice(0, 8).join(', ') + (names.length > 8 ? ' …' : '') +
+    '\\nEnsure the root component is exported or named App.'
+  );
+
+  // Error boundary catches async render errors that a try/catch cannot.
+  var EB = class extends React.Component {
+    constructor(p) { super(p); this.state = {err: null}; }
+    static getDerivedStateFromError(e) { return {err: e}; }
+    render() {
+      if (this.state.err) return React.createElement('pre', {
+        style: {padding:'12px',margin:0,color:'#ef4444',fontSize:'12px',whiteSpace:'pre-wrap'}
+      }, 'Render error\\n' + String(this.state.err));
+      return this.props.children;
+    }
+  };
+  window.onerror = function(msg) { showErr('Error: ' + msg); return true; };
+  try {
+    ReactDOM.createRoot(rootEl).render(
+      React.createElement(EB, null, React.createElement(RC))
+    );
+  } catch (e) { showErr('Render error: ' + e.message); }
+});
+</script>
+</body>
+</html>`;
+}
+
+function buildVuePreviewHtml(contentMap: Map<string, string>): string {
+  const cssContent = [...contentMap.entries()]
+    .filter(([path]) => /\.css$/i.test(path))
+    .map(([, c]) => c)
+    .join("\n");
+
+  const appEntry =
+    [...contentMap.entries()].find(
+      ([p]) => /\/App\.vue$/i.test(p) || /^App\.vue$/i.test(p),
+    ) ?? [...contentMap.entries()].find(([p]) => /\.vue$/i.test(p));
+
+  const vueContent = appEntry?.[1] ?? "";
+  const templateMatch = vueContent.match(/<template>([\s\S]*?)<\/template>/i);
+  const scriptMatch = vueContent.match(/<script([^>]*)>([\s\S]*?)<\/script>/i);
+  const styleMatch = vueContent.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
+
+  const template = templateMatch?.[1]?.trim() ?? "<div>Vue app</div>";
+  const inlineStyle = styleMatch?.[1] ?? "";
+  const scriptAttrs = scriptMatch?.[1] ?? "";
+  const rawScript = scriptMatch?.[2] ?? "";
+  const isSetupScript = /\bsetup\b/i.test(scriptAttrs);
+
+  let optionsScript: string;
+  if (isSetupScript || !rawScript.trim()) {
+    optionsScript = "";
+  } else {
+    const stripped = stripImports(rawScript)
+      .replace(/export\s+default\s+/, "var __opts__ = ")
+      .trim();
+    optionsScript = stripped.includes("__opts__")
+      ? stripped
+      : stripped + "\nvar __opts__ = {};";
+  }
+
+  // Use JSON.stringify for all user content to avoid any escaping pitfalls
+  const encodedTemplate = JSON.stringify(template);
+  const encodedStyle = JSON.stringify(inlineStyle);
+  const encodedScript = JSON.stringify(optionsScript);
+
+  return `<!DOCTYPE html>
+            <html lang="en">
+            <head>
+            <meta charset="UTF-8"/>
+            <meta name="viewport" content="width=device-width,initial-scale=1"/>
+            <style>*{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif}${cssContent}</style>
+            </head>
+            <body>
+            <div id="app"><p style="padding:12px;color:#888;font-size:13px">Loading…</p></div>
+            <script id="__tmpl__" type="application/json">${encodedTemplate}</script>
+            <script id="__style__" type="application/json">${encodedStyle}</script>
+            <script id="__scr__" type="application/json">${encodedScript}</script>
+            <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+            <script>
+            window.addEventListener('load', function () {
+              var appEl = document.getElementById('app');
+              function showErr(msg) {
+                appEl.innerHTML = '<pre style="padding:12px;margin:0;color:#ef4444;font-size:12px;white-space:pre-wrap"><b>Preview error</b>\\n' + String(msg) + '</pre>';
+              }
+              if (typeof Vue === 'undefined') return showErr('Vue CDN script failed to load');
+
+              var template = JSON.parse(document.getElementById('__tmpl__').textContent);
+              var style    = JSON.parse(document.getElementById('__style__').textContent);
+              var scriptSrc= JSON.parse(document.getElementById('__scr__').textContent);
+
+              if (style) {
+                var s = document.createElement('style');
+                s.textContent = style;
+                document.head.appendChild(s);
+              }
+
+              var {createApp,ref,reactive,computed,watch,onMounted,onUnmounted,defineComponent} = Vue;
+
+              var options = {};
+              if (scriptSrc.trim()) {
+                try {
+                  // new Function keeps user code isolated; return __opts__ from inside
+                  var factory = new Function(
+                    'Vue','ref','reactive','computed','watch','onMounted','onUnmounted','defineComponent',
+                    scriptSrc + '\\nreturn typeof __opts__!=="undefined"?__opts__:{};'
+                  );
+                  options = factory(Vue, ref, reactive, computed, watch, onMounted, onUnmounted, defineComponent);
+                } catch (e) { return showErr('Script error: ' + e.message); }
+              }
+
+              try {
+                createApp({ ...options, template }).mount('#app');
+              } catch (e) { showErr('Mount error: ' + e.message); }
+            });
+            </script>
+            </body>
+          </html>`;
+}
+
+const FRAMEWORK_DISPLAY: Record<
+  string,
+  { label: string; img?: string; icon?: string; colorClass: string }
+> = {
+  website: {
+    label: "HTML/CSS",
+    icon: "🌐",
+    colorClass:
+      "text-orange-400 bg-orange-500/10 border-orange-500/30",
+  },
+  ui: {
+    label: "HTML/CSS",
+    icon: "🎨",
+    colorClass:
+      "text-orange-400 bg-orange-500/10 border-orange-500/30",
+  },
+  reactjs: {
+    label: "React",
+    img: "/image/react.svg",
+    colorClass: "text-sky-400 bg-sky-500/10 border-sky-500/30",
+  },
+  angular: {
+    label: "Angular",
+    img: "/image/angular.svg",
+    colorClass: "text-red-400 bg-red-500/10 border-red-500/30",
+  },
+  vuejs: {
+    label: "Vue",
+    img: "/image/vue.svg",
+    colorClass: "text-green-400 bg-green-500/10 border-green-500/30",
+  },
+  wordpress_divi_child: {
+    label: "WordPress",
+    img: "/image/wordPress.svg",
+    colorClass: "text-blue-400 bg-blue-500/10 border-blue-500/30",
+  },
+};
+
+const LIVE_STATUS_LABEL: Record<string, string> = {
+  installing: "Installing dependencies…",
+  starting: "Starting dev server…",
+};
+
+function LivePreviewLogs({ logs }: { logs: string[] }) {
+  if (logs.length === 0) return null;
+  return (
+    <pre className="mt-3 max-h-40 w-full max-w-md overflow-auto rounded-md bg-secondary/40 border border-border p-2 text-left text-[10px] leading-relaxed text-muted/70 font-mono">
+      {logs.slice(-12).join("\n")}
+    </pre>
+  );
+}
+
+function LivePreviewPanel({
+  framework,
+  requested,
+  filesReady,
+  status,
+  onStart,
+  onStop,
+}: {
+  framework: string;
+  requested: boolean;
+  filesReady: boolean;
+  status: PreviewStatusResponse | null;
+  onStart: () => void;
+  onStop: () => Promise<void>;
+}) {
+  const handleRetry = async () => {
+    await onStop();
+    onStart();
+  };
+
+  if (!requested) {
+    return (
+      <>
+        <Play className="h-10 w-10 text-muted/25" />
+        <div>
+          <p className="text-sm font-medium text-muted/70">
+            {framework} live preview
+          </p>
+          <p className="text-xs text-muted/45 mt-1 max-w-xs">
+            Spins up a real dev server for this project. First start can take
+            a minute while dependencies install.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onStart}
+          className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 transition-opacity"
+        >
+          <Play className="h-3 w-3" />
+          Start Live Preview
+        </button>
+      </>
+    );
+  }
+
+  if (!filesReady || !status) {
+    return (
+      <>
+        <span className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <p className="text-xs text-muted/60">
+          {!filesReady ? "Preparing project files…" : "Starting preview session…"}
+        </p>
+      </>
+    );
+  }
+
+  if (status.status === "error") {
+    return (
+      <>
+        <AlertTriangle className="h-10 w-10 text-red-400/70" />
+        <div>
+          <p className="text-sm font-medium text-muted/70">
+            Live preview failed
+          </p>
+          <p className="text-xs text-muted/45 mt-1 max-w-sm">
+            {status.error ?? "Unknown error"}
+          </p>
+        </div>
+        <LivePreviewLogs logs={status.logs} />
+        <button
+          type="button"
+          onClick={handleRetry}
+          className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 transition-opacity"
+        >
+          <Play className="h-3 w-3" />
+          Retry
+        </button>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <span className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      <p className="text-xs text-muted/60">
+        {LIVE_STATUS_LABEL[status.status] ?? "Preparing preview…"}
+      </p>
+      <LivePreviewLogs logs={status.logs} />
+      <button
+        type="button"
+        onClick={onStop}
+        className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-muted hover:text-foreground border border-border"
+      >
+        <Square className="h-3 w-3" />
+        Cancel
+      </button>
+    </>
+  );
+}
+
 export const ChatPage = () => {
   const router = useRouter();
   const params = useParams();
@@ -285,9 +689,9 @@ export const ChatPage = () => {
     enabled: !!threadId && !!previewTargetPath && viewMode === "preview",
   });
 
-  // Fetch all CSS/JS files when in preview mode so they can be inlined
+  // Fetch all previewable files when in preview mode so they can be inlined/compiled
   const cssJsPaths = allFiles
-    .filter((f) => /\.(css|js)$/i.test(f.path))
+    .filter((f) => /\.(css|js|tsx?|jsx?|vue)$/i.test(f.path))
     .map((f) => f.path);
 
   const depResults = useQueries({
@@ -304,13 +708,9 @@ export const ChatPage = () => {
       depContentMap.set(cssJsPaths[i].replace(/^[./]+/, ""), r.data.content);
   });
 
-  const previewHtml = previewHtmlFile?.content
-    ? buildPreviewHtml(previewHtmlFile.content, depContentMap)
-    : null;
-
   const previewLoading =
     viewMode === "preview" &&
-    (previewHtmlLoading || depResults.some((r) => r.isLoading));
+    (filesLoading || previewHtmlLoading || depResults.some((r) => r.isLoading));
 
   // Used by the Download button — resolved before panel JSX is defined
   const downloadProjectId = useChatStore(
@@ -408,6 +808,7 @@ export const ChatPage = () => {
       queryClient.invalidateQueries({ queryKey: ["messages", tid] });
       queryClient.invalidateQueries({ queryKey: ["thread", tid] });
       queryClient.invalidateQueries({ queryKey: ["threads"] });
+      queryClient.invalidateQueries({ queryKey: ["files", tid] });
     },
     onError: (error) => {
       const state = useChatStore.getState();
@@ -521,6 +922,92 @@ export const ChatPage = () => {
   };
 
   const isFirstMessage = !threadId || messages.length === 0;
+
+  const projectMode =
+    messages.find((m) => m.type === "human" && m.mode)?.mode ?? null;
+  const frameworkInfo = projectMode ? FRAMEWORK_DISPLAY[projectMode] : null;
+
+  const previewHtml = (() => {
+    if (viewMode !== "preview" || previewLoading) return null;
+    // Never call the framework builders with an empty map — files haven't loaded yet.
+    if (projectMode === "reactjs") {
+      if (depContentMap.size === 0) return null;
+      return buildReactPreviewHtml(depContentMap);
+    }
+    if (projectMode === "vuejs") {
+      if (depContentMap.size === 0) return null;
+      return buildVuePreviewHtml(depContentMap);
+    }
+    if (projectMode === "angular" || projectMode === "wordpress_divi_child")
+      return null;
+    if (previewHtmlFile?.content)
+      return buildPreviewHtml(previewHtmlFile.content, depContentMap);
+    return null;
+  })();
+
+  // ── Live preview (real dev server, for frameworks the in-browser preview can't
+  // render: Angular and WordPress) ─────────────────────────────────────────────
+  const isLivePreviewMode =
+    projectMode === "angular" || projectMode === "wordpress_divi_child";
+  const liveFramework = projectMode ? modeToFramework(projectMode) : "react";
+
+  const [liveRequested, setLiveRequested] = useState(false);
+  const [liveSessionStarted, setLiveSessionStarted] = useState(false);
+  const liveStartedSignatureRef = useRef<string | null>(null);
+
+  const liveFilePaths = isLivePreviewMode ? allFiles.map((f) => f.path) : [];
+  const liveFileResults = useQueries({
+    queries: liveFilePaths.map((path) => ({
+      queryKey: ["file", threadId, path],
+      queryFn: () => fileAPI.get(threadId!, path),
+      enabled: !!threadId && liveRequested,
+    })),
+  });
+  const liveFilesReady =
+    liveRequested &&
+    liveFilePaths.length > 0 &&
+    liveFileResults.every((r) => r.data?.content !== undefined);
+  const liveFiles = liveFileResults.map((r, i) => ({
+    path: liveFilePaths[i],
+    content: r.data?.content ?? "",
+  }));
+
+  useEffect(() => {
+    if (!liveRequested || !liveFilesReady || !threadId) return;
+    const signature = `${liveFramework}:${liveFiles.length}:${liveFiles.reduce((n, f) => n + f.content.length, 0)}`;
+    if (liveStartedSignatureRef.current === signature) return;
+    liveStartedSignatureRef.current = signature;
+    setLiveSessionStarted(false);
+    previewApi
+      .start(threadId, liveFramework, liveFiles)
+      .then(() => setLiveSessionStarted(true))
+      .catch(() => {
+        liveStartedSignatureRef.current = null;
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveRequested, liveFilesReady, threadId, liveFramework]);
+
+  const liveStatusQuery = useQuery({
+    queryKey: ["preview-status", threadId],
+    queryFn: () => previewApi.status(threadId!),
+    enabled: !!threadId && liveSessionStarted,
+    refetchInterval: (query) =>
+      query.state.data?.status === "running" ? 8000 : 2000,
+  });
+
+  const handleStartLivePreview = () => setLiveRequested(true);
+  const handleStopLivePreview = async () => {
+    liveStartedSignatureRef.current = null;
+    setLiveRequested(false);
+    setLiveSessionStarted(false);
+    if (threadId) await previewApi.stop(threadId).catch(() => {});
+    queryClient.removeQueries({ queryKey: ["preview-status", threadId] });
+  };
+
+  const livePreviewUrl =
+    liveStatusQuery.data?.status === "running"
+      ? liveStatusQuery.data.previewUrl
+      : null;
 
   // ── File tree panel ──────────────────────────────────────────────────────────
   const fileTreePanel = (
@@ -651,6 +1138,25 @@ export const ChatPage = () => {
         )}
         {/* Actions */}
         <div className="flex items-center gap-1.5 shrink-0 pl-2 pr-3 py-2 border-l border-border self-stretch">
+          {frameworkInfo && (
+            <div
+              className={cn(
+                "flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] font-medium shrink-0",
+                frameworkInfo.colorClass,
+              )}
+            >
+              {frameworkInfo.img ? (
+                <img
+                  src={frameworkInfo.img}
+                  alt={frameworkInfo.label}
+                  className="h-3 w-3 object-contain"
+                />
+              ) : (
+                <span className="text-[10px]">{frameworkInfo.icon}</span>
+              )}
+              {frameworkInfo.label}
+            </div>
+          )}
           <div className="flex rounded-lg border border-border p-0.5">
             {(["code", "preview"] as ViewMode[]).map((mode) => (
               <button
@@ -758,24 +1264,56 @@ export const ChatPage = () => {
           </div>
         ) : previewHtml ? (
           <iframe
-            key={previewTargetPath ?? "preview"}
+            key={
+              projectMode === "reactjs" || projectMode === "vuejs"
+                ? `${projectMode}-preview`
+                : (previewTargetPath ?? "preview")
+            }
             srcDoc={previewHtml}
             title="Preview"
             className="w-full h-full border-none bg-white"
             sandbox="allow-scripts"
           />
+        ) : livePreviewUrl ? (
+          <div className="relative h-full">
+            <iframe
+              src={livePreviewUrl}
+              title="Live preview"
+              className="w-full h-full border-none bg-white"
+            />
+            <button
+              type="button"
+              onClick={handleStopLivePreview}
+              className="absolute top-2 right-2 flex items-center gap-1 rounded-md bg-background/90 border border-border px-2 py-1 text-[11px] font-medium text-muted hover:text-foreground shadow-sm"
+            >
+              <Square className="h-3 w-3" />
+              Stop
+            </button>
+          </div>
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center px-6">
-            <Eye className="h-10 w-10 text-muted/25" />
-            <div>
-              <p className="text-sm font-medium text-muted/70">
-                No HTML file to preview
-              </p>
-              <p className="text-xs text-muted/45 mt-1">
-                Select an <span className="font-mono">.html</span> file from the
-                explorer, or wait for generation to produce one.
-              </p>
-            </div>
+            {isLivePreviewMode ? (
+              <LivePreviewPanel
+                framework={projectMode === "angular" ? "Angular" : "WordPress"}
+                requested={liveRequested}
+                filesReady={liveFilesReady}
+                status={liveStatusQuery.data ?? null}
+                onStart={handleStartLivePreview}
+                onStop={handleStopLivePreview}
+              />
+            ) : (
+              <>
+                <Eye className="h-10 w-10 text-muted/25" />
+                <div>
+                  <p className="text-sm font-medium text-muted/70">
+                    No preview yet
+                  </p>
+                  <p className="text-xs text-muted/45 mt-1">
+                    Wait for generation to complete.
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>

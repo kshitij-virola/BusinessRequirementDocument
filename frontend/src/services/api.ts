@@ -126,7 +126,7 @@ export const fileAPI = {
     });
     return response.data;
   },
-  
+
   get: async (threadId: string, path: string): Promise<ProjectFile> => {
     const response = await axios.get(API_ENDPOINTS.FILES.DETAIL(threadId, path));
     return response.data;
