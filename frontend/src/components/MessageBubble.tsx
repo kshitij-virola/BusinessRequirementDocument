@@ -2,6 +2,7 @@ import type { Message } from '../types';
 import { cn } from '@/lib/utils';
 import { projectAPI } from '../services/api';
 import { Download } from 'lucide-react';
+import { toast } from '@/store/toastStore';
 
 interface MessageBubbleProps {
   message: Message;
@@ -28,7 +29,7 @@ export const MessageBubble = ({ message, isStreaming, phase, projectId }: Messag
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Failed to download project:', error);
-      alert('Failed to download. Please try again.');
+      toast.error('Failed to download. Please try again.');
     }
   };
 

@@ -160,17 +160,27 @@ export const useAdminAccounts = () => {
 
 // ── Cache invalidation helpers ────────────────────────────────────────────────
 
+// Clears the cached data (rather than just pinging an active hook to
+// revalidate) so a stale list still refreshes even when navigated to after
+// the mutating page has already unmounted — `revalidateIfStale: false`
+// otherwise leaves it showing pre-mutation data on remount.
 export const invalidateProjects = async () => {
-  await mutate((key: unknown) => typeof key === 'string' && key.startsWith('/projects'))
+  await mutate((key: unknown) => typeof key === 'string' && key.startsWith('/projects'), undefined, { revalidate: false })
 }
 
 export const invalidateWorkspaces = async () => {
-  await mutate((key: unknown) => typeof key === 'string' && key.startsWith('/workspaces'))
+  await mutate((key: unknown) => typeof key === 'string' && key.startsWith('/workspaces'), undefined, { revalidate: false })
 }
 
 export const invalidateDashboard = async () => {
   await Promise.all([
-    mutate(KEYS.dashboardStats),
-    mutate(KEYS.recentActivity),
+    mutate(KEYS.dashboardStats, undefined, { revalidate: false }),
+    mutate(KEYS.recentActivity, undefined, { revalidate: false }),
   ])
+}
+
+// The topbar credits badge reads useMe() directly — nothing else refreshes
+// it, so it must be invalidated explicitly after credits are spent.
+export const invalidateMe = async () => {
+  await mutate(KEYS.me, undefined, { revalidate: false })
 }

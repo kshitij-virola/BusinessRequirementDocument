@@ -38,6 +38,11 @@ export const env = {
     clientSecret: optional('GITHUB_CLIENT_SECRET'),
   },
 
+  microsoft: {
+    clientId:     optional('MICROSOFT_CLIENT_ID'),
+    clientSecret: optional('MICROSOFT_CLIENT_SECRET'),
+  },
+
   smtp: {
     host: optional('SMTP_HOST', 'smtp.sendgrid.net'),
     port: parseInt(optional('SMTP_PORT', '587'), 10),

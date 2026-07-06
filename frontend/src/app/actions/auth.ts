@@ -1,7 +1,7 @@
 'use server'
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
-import { SignupFormSchema, LoginFormSchema, ForgotPasswordSchema } from '@/lib/definitions'
+import { SignupFormSchema, LoginFormSchema, ForgotPasswordSchema, ResetPasswordSchema } from '@/lib/definitions'
 import { createSession, deleteSession } from '@/lib/session'
 import type { FormState } from '@/types'
 
@@ -136,6 +136,30 @@ export const forgotPassword = async (state: FormState, formData: FormData): Prom
   const { email } = validated.data
   await apiPost('/auth/forgot-password', { email })
   return { success: true, message: 'If this email exists, a reset link has been sent.' }
+}
+
+export const resetPassword = async (state: FormState, formData: FormData): Promise<FormState> => {
+  const validated = ResetPasswordSchema.safeParse({
+    token:           formData.get('token'),
+    password:        formData.get('password'),
+    confirmPassword: formData.get('confirmPassword'),
+  })
+  if (!validated.success) {
+    const { token, ...fieldErrors } = validated.error.flatten().fieldErrors
+    if (token?.length && !fieldErrors.password && !fieldErrors.confirmPassword) {
+      return { message: 'This reset link is invalid or missing. Please request a new one.' }
+    }
+    return { errors: fieldErrors }
+  }
+
+  const { token, password } = validated.data
+  const { ok, json } = await apiPost('/auth/reset-password', { token, password })
+
+  if (!ok) {
+    return { message: json.message ?? 'This reset link is invalid or expired. Please request a new one.' }
+  }
+
+  return { success: true, message: 'Password reset successfully. You can now sign in.' }
 }
 
 export const logout = async () => {

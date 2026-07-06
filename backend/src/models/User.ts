@@ -12,7 +12,7 @@ export interface IUser extends Document {
   avatar?: string
   isEmailVerified: boolean
   isSuspended: boolean
-  oauthProvider?: 'google' | 'github'
+  oauthProvider?: 'google' | 'github' | 'microsoft'
   oauthId?: string
   subscription: {
     plan: SubscriptionPlan
@@ -54,7 +54,7 @@ const userSchema = new Schema<IUser>(
     avatar:           { type: String },
     isEmailVerified:  { type: Boolean, default: false },
     isSuspended:      { type: Boolean, default: false },
-    oauthProvider:    { type: String, enum: ['google', 'github'] },
+    oauthProvider:    { type: String, enum: ['google', 'github', 'microsoft'] },
     oauthId:          { type: String },
     subscription: {
       plan:                 { type: String, enum: ['free', 'pro', 'agency'], default: 'free' },
@@ -90,7 +90,6 @@ userSchema.methods.comparePassword = async function (candidate: string): Promise
   return bcrypt.compare(candidate, this.password)
 }
 
-userSchema.index({ email: 1 })
 userSchema.index({ 'subscription.stripeCustomerId': 1 })
 
 export const User = mongoose.model<IUser>('User', userSchema)

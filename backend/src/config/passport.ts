@@ -1,6 +1,7 @@
 import passport from 'passport'
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20'
 import { Strategy as GitHubStrategy } from 'passport-github2'
+import { Strategy as MicrosoftStrategy } from 'passport-microsoft'
 import { User } from '../models/User'
 import { AuditLog } from '../models/AuditLog'
 import { env } from './env'
@@ -86,5 +87,51 @@ passport.use(new GitHubStrategy(
     }
   }
 ))
+
+if (env.microsoft.clientId && env.microsoft.clientSecret) {
+  passport.use(new MicrosoftStrategy(
+    {
+      clientID:     env.microsoft.clientId,
+      clientSecret: env.microsoft.clientSecret,
+      callbackURL:  `${env.backendUrl}/api/auth/microsoft/callback`,
+      scope:        ['user.read'],
+    },
+    async (_accessToken: string, _refreshToken: string, profile: any, done: (err: any, user?: any) => void) => {
+      try {
+        let user = await User.findOne({ oauthProvider: 'microsoft', oauthId: profile.id })
+
+        if (!user) {
+          const email = profile.emails?.[0]?.value
+          if (email) {
+            user = await User.findOne({ email }) ?? null
+            if (user) {
+              user.oauthProvider = 'microsoft'
+              user.oauthId = profile.id
+              if (!user.avatar && profile.photos?.[0]?.value) user.avatar = profile.photos[0].value
+              await user.save()
+            }
+          }
+          if (!user) {
+            user = await User.create({
+              name:            profile.displayName || email?.split('@')[0] || 'User',
+              email:           email ?? `microsoft-${profile.id}@oauth.placeholder`,
+              oauthProvider:   'microsoft',
+              oauthId:         profile.id,
+              isEmailVerified: !!email,
+              avatar:          profile.photos?.[0]?.value,
+            })
+            await AuditLog.create({ userId: user._id, actor: user.email, actorRole: 'user', action: 'user.register', entityId: String(user._id), entityType: 'User', metadata: { provider: 'microsoft' } })
+          }
+        }
+
+        return done(null, user as any)
+      } catch (err) {
+        return done(err as Error)
+      }
+    }
+  ))
+} else {
+  console.warn('Microsoft OAuth disabled: MICROSOFT_CLIENT_ID/MICROSOFT_CLIENT_SECRET not set')
+}
 
 export default passport

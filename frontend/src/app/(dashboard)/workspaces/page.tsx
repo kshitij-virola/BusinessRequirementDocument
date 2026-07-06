@@ -28,9 +28,10 @@ const WorkspacesPage = () => {
       ) : workspaces.length > 0 ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {workspaces?.map((ws:any) => {
-            const gen = ws.generations?.[ws.generations.length - 1]
+            const gen = ws.generations?.[0]
+            const threadId = gen?.threadId ?? ''
             const isCompleted = gen?.status === 'completed'; // if (gen?.status === 'failed') return null;
-            return <Link key={ws._id} href={gen?.threadId && isCompleted ? `/thread/${gen?.threadId}` : `/workspaces/chat`}>
+            return <Link key={ws._id} href={threadId ? `/thread/${threadId}` : `/workspaces/chat`} onClick={(e)=>{if(!threadId) e.preventDefault()}}>
              <div className="rounded-xl border border-border bg-card p-4 hover:border-primary/50 hover:bg-secondary transition-all cursor-pointer space-y-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
@@ -38,7 +39,7 @@ const WorkspacesPage = () => {
                     <span className="font-medium text-foreground text-sm truncate">{ws.name}</span>
                   </div>
                   {gen?.status !== 'failed' ?
-                    <Badge variant={isCompleted ? 'success' : 'muted'} className="shrink-0">{gen.status}</Badge> :
+                    <Badge variant={isCompleted ? 'success' : 'muted'} className="shrink-0">{gen?.status}</Badge> :
                     <Badge variant='danger' className="shrink-0">Failed</Badge>
                   }
                 </div>

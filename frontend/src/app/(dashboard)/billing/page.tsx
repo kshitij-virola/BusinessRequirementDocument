@@ -86,7 +86,7 @@ const BillingPage = () => {
   const renewalDate = formatDate(me?.subscription.currentPeriodEnd)
   const isPaidPlan = currentPlanSlug !== 'free'
 
-  const generationsUsed = stats?.creditsUsed ?? 0
+  const generationsUsed = Math.abs(stats?.creditsUsed ?? 0)
   const generationsLimit = plans?.find(p => p.slug === currentPlanSlug)?.features.generationsPerMonth ?? 0
   const storageUsed = stats?.storageUsedBytes ?? me?.storage?.usedBytes ?? 0
   const storageLimit = stats?.storageLimitBytes ?? me?.storage?.limitBytes ?? 0

@@ -22,7 +22,7 @@ export const FRAMEWORK_CONFIGS: Record<Framework, FrameworkConfig> = {
   },
   angular: {
     install: ['npm', 'install', '--prefer-offline'],
-    start:   ['npm', 'start', '--', '--port', '{PORT}', '--host', '0.0.0.0', '--disable-host-check', '--base-href', '{BASE}', '--serve-path', '{BASE_PATH}'],
+    start:   ['npm', 'start', '--', '--port', '{PORT}', '--host', '0.0.0.0', '--disable-host-check', '--serve-path', '{BASE_PATH}'],
     readyPattern: /compiled successfully|Application bundle generation complete|Compiled successfully/i,
     defaultPort: 4200,
   },

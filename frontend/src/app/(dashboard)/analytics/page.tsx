@@ -3,7 +3,7 @@ import { useState, useMemo } from 'react'
 import { BarChart2, TrendingUp, Zap, Download } from 'lucide-react'
 import StatsCard from '@/components/dashboard/StatsCard'
 import Badge from '@/components/ui/Badge'
-import { formatDate } from '@/lib/utils'
+import { formatDate, formatCredits } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import { useDashboardStats, useCreditUsage, useGenerations } from '@/lib/api/hooks'
 import { generationsApi } from '@/lib/api/generations'
@@ -20,7 +20,7 @@ const normalizeChart = (data: CreditUsagePoint[], period: Period) => {
       d.setDate(d.getDate() - (6 - i))
       const dateStr = d.toISOString().slice(0, 10)
       const found = data.find(p => p._id === dateStr)
-      return { label: DAY_LABELS[d.getDay()], credits: found?.credits ?? 0 }
+      return { label: DAY_LABELS[d.getDay()], credits: Math.abs(found?.credits ?? 0) }
     })
   }
   const now = new Date()
@@ -28,7 +28,7 @@ const normalizeChart = (data: CreditUsagePoint[], period: Period) => {
   data.forEach(p => {
     const daysAgo = Math.floor((now.getTime() - new Date(p._id).getTime()) / 86400000)
     const idx = 3 - Math.min(3, Math.floor(daysAgo / 7))
-    weeks[idx].credits += p.credits
+    weeks[idx].credits += Math.abs(p.credits)
   })
   return weeks;
 }
@@ -97,7 +97,7 @@ const AnalyticsPage = () => {
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <StatsCard label="Total Generations" value={stats ? String(stats.totalGenerations) : '—'} icon={Zap}         accent="violet"  trend={{ value: 12, direction: 'up' }} />
-        <StatsCard label="Credits Used"      value={stats ? String(stats.creditsUsed) : '—'}      icon={BarChart2}   accent="amber"   trend={{ value: 12, direction: 'up' }} />
+        <StatsCard label="Credits Used"      value={stats ? formatCredits(stats.creditsUsed) : '—'} icon={BarChart2}   accent="amber"   trend={{ value: 12, direction: 'up' }} />
         <StatsCard label="Downloads"         value={stats ? String(stats.downloads) : '—'}        icon={Download}    accent="emerald" trend={{ value: 12, direction: 'up' }} />
         <StatsCard label="Success Rate"      value={stats ? `${stats.successRate}%` : '—'}        icon={TrendingUp}  accent="blue"    trend={{ value: 3, direction: 'down' }} className="col-span-2 sm:col-span-1" />
       </div>
@@ -168,7 +168,7 @@ const AnalyticsPage = () => {
                       {g.status}
                     </Badge>
                   </td>
-                  <td className="px-4 py-3 text-gray-400 hidden md:table-cell">{g.creditsUsed}</td>
+                  <td className="px-4 py-3 text-gray-400 hidden md:table-cell">{formatCredits(g.creditsUsed)}</td>
                   <td className="px-4 py-3 text-gray-500 text-xs hidden md:table-cell">{formatDate(g.createdAt)}</td>
                 </tr>
               ))}

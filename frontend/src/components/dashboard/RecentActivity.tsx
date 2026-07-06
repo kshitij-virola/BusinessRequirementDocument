@@ -1,5 +1,5 @@
 import Badge from '@/components/ui/Badge'
-import { formatDate } from '@/lib/utils'
+import { formatDate, formatCredits } from '@/lib/utils'
 import type { RecentGeneration } from '@/lib/api/types'
 
 interface RecentActivityProps {
@@ -46,7 +46,7 @@ export const RecentActivity = ({ generations, isLoading }: RecentActivityProps) 
             <div className="flex-1 min-w-0">
               <p className="text-sm text-foreground truncate">{gen.prompt}</p>
               <p className="text-xs text-gray-500 mt-0.5">
-                {gen.framework} &middot; {formatDate(gen.createdAt)} &middot; {gen.creditsUsed} credit{gen.creditsUsed !== 1 ? 's' : ''}
+                {gen.framework} &middot; {formatDate(gen.createdAt)} &middot; {formatCredits(gen.creditsUsed)} credit{Math.abs(gen.creditsUsed) !== 1 ? 's' : ''}
               </p>
             </div>
             <Badge variant={statusVariants[gen.status] ?? 'default'}>{gen.status}</Badge>

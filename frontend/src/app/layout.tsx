@@ -3,6 +3,7 @@ import { Inter, Plus_Jakarta_Sans } from 'next/font/google'
 import './globals.css'
 import Providers from '@/components/Providers'
 import { CookieConsent } from '@/components/CookieConsent'
+import { ToastContainer } from '@/components/ui/Toast'
 
 const inter = Inter({
   variable: '--font-inter',
@@ -32,6 +33,7 @@ const RootLayout = ({ children }: { children: React.ReactNode }) => {
       <body className="min-h-full bg-background text-foreground">
         <Providers>{children}</Providers>
         <CookieConsent />
+        <ToastContainer />
       </body>
     </html>
   )

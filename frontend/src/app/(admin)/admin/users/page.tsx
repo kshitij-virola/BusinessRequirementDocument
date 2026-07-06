@@ -45,14 +45,22 @@ const UsersTab = ({ me }: { me?: MeResponse }) => {
   const [planFilter, setPlanFilter] = useState('')
   const { data, isLoading } = useAdminUsers({ search: search || undefined, plan: planFilter || undefined })
   const [isPending, startTransition] = useTransition()
+  const [confirmReset, setConfirmReset] = useState<string | null>(null)
   const isSuperAdmin = me?.role === 'superadmin'
   const users = data?.users?.filter((user) => user._id !== me?._id && user.role !== 'superadmin') ?? []
 
-  const handleAction = (id: string, action: 'suspend' | 'activate' | 'reset') => {
+  const handleAction = (id: string, action: 'suspend' | 'activate') => {
     startTransition(async () => {
       if (action === 'suspend')  await adminApi.suspendUser(id)
       if (action === 'activate') await adminApi.activateUser(id)
-      if (action === 'reset')    await adminApi.resetCredits(id)
+      mutate((key) => typeof key === 'string' && key.startsWith('/admin/users'))
+    })
+  }
+
+  const handleResetCredits = (id: string) => {
+    startTransition(async () => {
+      await adminApi.resetCredits(id)
+      setConfirmReset(null)
       mutate((key) => typeof key === 'string' && key.startsWith('/admin/users'))
     })
   }
@@ -137,10 +145,24 @@ const UsersTab = ({ me }: { me?: MeResponse }) => {
                         onClick={() => handleAction(user._id, user.isSuspended ? 'activate' : 'suspend')}>
                         {user.isSuspended ? 'Activate' : 'Suspend'}
                       </Button>
-                      <Button variant="secondary" size="sm" loading={isPending}
-                        onClick={() => handleAction(user._id, 'reset')}>
-                        Reset Credits
-                      </Button>
+                      {confirmReset === user._id ? (
+                        <>
+                          <span className="text-xs text-gray-400">Reset credits?</span>
+                          <Button variant="danger" size="sm" loading={isPending}
+                            onClick={() => handleResetCredits(user._id)}>
+                            Yes
+                          </Button>
+                          <Button variant="secondary" size="sm" disabled={isPending}
+                            onClick={() => setConfirmReset(null)}>
+                            No
+                          </Button>
+                        </>
+                      ) : (
+                        <Button variant="secondary" size="sm"
+                          onClick={() => setConfirmReset(user._id)}>
+                          Reset Credits
+                        </Button>
+                      )}
                     </div>
                   </td>
                 </tr>

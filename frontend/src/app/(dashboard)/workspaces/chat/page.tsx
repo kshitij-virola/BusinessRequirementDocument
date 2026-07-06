@@ -4,18 +4,21 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { threadAPI, messageAPI } from "@/services/api";
 import { useChatStore } from "@/store/slices/chatStore";
 import { MessageInput } from "@/components/MessageInput";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { workspacesApi } from "@/lib/api/workspaces";
 import { generationsApi } from "@/lib/api/generations";
 import { invalidateWorkspaces, invalidateDashboard } from "@/lib/api/hooks";
-import { modeToFramework, deriveInputMode } from "@/lib/utils";
+import { modeToFramework, deriveInputMode, getErrorMessage } from "@/lib/utils";
+import { toast } from "@/store/toastStore";
 
 export const ChatPage = () => {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const threadId =
     typeof params?.threadId === "string" ? params.threadId : undefined;
+  const projectId = searchParams.get("projectId") ?? undefined;
   const {
     setCurrentThread,
     messages,
@@ -65,20 +68,21 @@ export const ChatPage = () => {
     usePromptImprover: boolean,
   ) => {
     try {
-      // New thread: create workspace + generation record, then start the stream.
+      // New thread: create the thread first, then the workspace, then start the
+      // stream. Sequenced (not Promise.all'd) so a failed thread creation never
+      // leaves behind an orphaned, unused workspace.
       if (!threadId) {
-        const [res, workspace] = await Promise.all([
-          threadAPI.create({
-            message: content,
-            images,
-            mode: mode as string,
-            use_prompt_improver: usePromptImprover,
-          }),
-          workspacesApi.create({
-            name: content.slice(0, 60) || "New Chat",
-            framework: modeToFramework(mode),
-          }),
-        ]);
+        const res = await threadAPI.create({
+          message: content,
+          images,
+          mode: mode as string,
+          use_prompt_improver: usePromptImprover,
+        });
+        const workspace = await workspacesApi.create({
+          name: content.slice(0, 60) || "New Chat",
+          framework: modeToFramework(mode),
+          projectId,
+        });
 
         generationsApi
           .generate({
@@ -100,7 +104,7 @@ export const ChatPage = () => {
         if (res.thread.messages && res.thread.messages.length > 0) {
           setMessages(res.thread.messages);
         }
-        startStream(res.thread.id, res.message_id);
+        startStream(res.thread.id, res.message_id, workspace._id);
         queryClient.invalidateQueries({ queryKey: ["threads"] });
         router.push(`/thread/${res.thread.id}`);
         return;
@@ -118,7 +122,7 @@ export const ChatPage = () => {
       startStream(threadId, res.message_id);
     } catch (error) {
       console.error("Failed to send message:", error);
-      alert("Failed to send message. Please try again.");
+      toast.error(getErrorMessage(error, "Failed to send message. Please try again."));
     }
   };
 

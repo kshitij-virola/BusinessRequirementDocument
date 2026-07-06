@@ -7,6 +7,10 @@ interface ChatState {
 
   // Streaming session (decoupled from the route param)
   activeThreadId: string | null;
+  // Local-backend workspace backing the active thread — set once when the
+  // thread/workspace pair is created so follow-up messages reuse it instead
+  // of creating a new workspace per message.
+  activeWorkspaceId: string | null;
   pendingMessageId: string | null;
   pendingGenerationId: string | null;
   streamStatus: StreamStatus;
@@ -25,7 +29,7 @@ interface ChatState {
   updateMessage: (messageId: string, updates: Partial<Message>) => void;
 
   setPendingGenerationId: (id: string | null) => void;
-  startStream: (threadId: string, messageId: string) => void;
+  startStream: (threadId: string, messageId: string, workspaceId?: string) => void;
   setStreamPhase: (phase: string) => void;
   applyStage: (stage: StageData) => void;
   appendStreamingContent: (content: string) => void;
@@ -39,6 +43,7 @@ export const useChatStore = create<ChatState>((set) => ({
   messages: [],
 
   activeThreadId: null,
+  activeWorkspaceId: null,
   pendingMessageId: null,
   pendingGenerationId: null,
   streamStatus: 'idle',
@@ -61,9 +66,10 @@ export const useChatStore = create<ChatState>((set) => ({
       ),
     })),
 
-  startStream: (threadId, messageId) =>
-    set({
+  startStream: (threadId, messageId, workspaceId) =>
+    set((state) => ({
       activeThreadId: threadId,
+      activeWorkspaceId: workspaceId ?? state.activeWorkspaceId,
       pendingMessageId: messageId,
       streamStatus: 'generating',
       streamPhase: 'init',
@@ -72,7 +78,7 @@ export const useChatStore = create<ChatState>((set) => ({
       projectId: null,
       streamError: null,
       isStreaming: true,
-    }),
+    })),
   setStreamPhase: (phase) => set({ streamPhase: phase }),
   applyStage: (stage) =>
     set((state) => {
@@ -95,6 +101,7 @@ export const useChatStore = create<ChatState>((set) => ({
   resetStream: () =>
     set({
       activeThreadId: null,
+      activeWorkspaceId: null,
       pendingMessageId: null,
       pendingGenerationId: null,
       streamStatus: 'idle',

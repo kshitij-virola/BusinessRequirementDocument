@@ -11,10 +11,11 @@ interface OAuthButtonsProps {
 }
 
 const OAuthButtons = ({ dividerLabel = 'or continue with' }: OAuthButtonsProps) => {
-  const [oauthLoading, setOauthLoading] = useState<'google' | 'github' | null>(null)
+  const [oauthLoading, setOauthLoading] = useState<'google' | 'github' | 'microsoft' | null>(null)
   const [oauthError, setOauthError]     = useState<string | null>(null)
   const popupRef = useRef<Window | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const providerRef = useRef<'github' | 'microsoft' | null>(null)
 
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
@@ -24,8 +25,9 @@ const OAuthButtons = ({ dividerLabel = 'or continue with' }: OAuthButtonsProps) 
         const role = e.data.role as string | undefined
         window.location.href = role === 'admin' || role === 'superadmin' ? '/admin/dashboard' : '/dashboard'
       } else if (e.data?.type === 'oauth_error') {
+        const provider = providerRef.current === 'github' ? 'GitHub' : providerRef.current === 'microsoft' ? 'Microsoft' : 'Login'
         cleanupPopup()
-        setOauthError('GitHub login failed. Please try again.')
+        setOauthError(`${provider} login failed. Please try again.`)
       }
     }
     window.addEventListener('message', onMessage)
@@ -71,20 +73,24 @@ const OAuthButtons = ({ dividerLabel = 'or continue with' }: OAuthButtonsProps) 
     client.requestCode()
   }
 
-  const handleGitHubLogin = () => {
-    const url  = `${API}/auth/github`
+  const openOAuthPopup = (provider: 'github' | 'microsoft') => {
+    const url  = `${API}/auth/${provider}`
     const w = 500, h = 650
     const left = Math.round(window.screenX + (window.outerWidth  - w) / 2)
     const top  = Math.round(window.screenY + (window.outerHeight - h) / 2)
     const popup = window.open(url, 'oauth_popup', `width=${w},height=${h},left=${left},top=${top},scrollbars=yes,resizable=yes`)
     if (!popup) return
     popupRef.current = popup
+    providerRef.current = provider
     setOauthError(null)
-    setOauthLoading('github')
+    setOauthLoading(provider)
     timerRef.current = setInterval(() => {
       if (popup.closed) cleanupPopup()
     }, 500)
   }
+
+  const handleGitHubLogin = () => openOAuthPopup('github')
+  const handleMicrosoftLogin = () => openOAuthPopup('microsoft')
 
   return (
     <>
@@ -124,6 +130,22 @@ const OAuthButtons = ({ dividerLabel = 'or continue with' }: OAuthButtonsProps) 
         >
           <GitFork className="h-4 w-4" />
           GitHub
+        </Button>
+        <Button
+          variant="secondary"
+          type="button"
+          className="col-span-2 gap-2"
+          loading={oauthLoading === 'microsoft'}
+          disabled={oauthLoading !== null}
+          onClick={handleMicrosoftLogin}
+        >
+          <svg className="h-4 w-4" viewBox="0 0 23 23">
+            <path d="M1 1h10v10H1z" fill="#F25022" />
+            <path d="M12 1h10v10H12z" fill="#7FBA00" />
+            <path d="M1 12h10v10H1z" fill="#00A4EF" />
+            <path d="M12 12h10v10H12z" fill="#FFB900" />
+          </svg>
+          Microsoft
         </Button>
       </div>
 

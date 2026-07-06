@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { ArrowLeft, FolderOpen, MessageSquare, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
-import { formatDate } from '@/lib/utils'
+import { formatDate, formatDateTime, truncateText } from '@/lib/utils'
 import { useProject, useWorkspaces } from '@/lib/api/hooks'
 import { ProjectActionsMenu } from '@/components/project/ProjectActionsMenu'
 
@@ -20,7 +20,7 @@ const ProjectDetailPage = ({ params: paramsPromise }: { params: Promise<{ id: st
   const { id } = params
 
   const { data: project, isLoading: projectLoading } = useProject(id)
-  const { data: workspacesData, isLoading: workspacesLoading } = useWorkspaces({ projectId: id })
+  const { data: workspacesData, isLoading: workspacesLoading } = useWorkspaces({ projectId: id, generations: true })
 
   const workspaces = workspacesData?.workspaces ?? []
 
@@ -89,19 +89,20 @@ const ProjectDetailPage = ({ params: paramsPromise }: { params: Promise<{ id: st
           Workspaces ({workspaces.length})
         </h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {workspaces.map((ws) => (
-            <Link key={ws._id} href={`/workspaces/${ws._id}`}>
+          {workspaces.map((ws: any) => (
+            <Link key={ws._id} href={ws?.generations?.[0]?.threadId ? `/thread/${ws.generations[0].threadId}` : '/workspaces/chat'}>
               <div className="rounded-xl border border-border bg-card p-4 hover:border-primary/50 hover:bg-secondary transition-all cursor-pointer space-y-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <MessageSquare className="h-4 w-4 text-primary shrink-0" />
-                    <span className="font-medium text-foreground text-sm truncate">{ws.name}</span>
+                    <span className="font-medium text-foreground text-sm truncate">{truncateText(ws.name, 40)}</span>
                   </div>
                   <Badge variant={statusVariant[ws.status] ?? 'muted'}>{ws.status}</Badge>
                 </div>
                 <div className="flex items-center justify-between text-xs text-gray-500">
                   <span>{ws.framework}</span>
                   <span>v{ws.currentVersion} &middot; {ws.totalGenerations} gen{ws.totalGenerations !== 1 ? 's' : ''}</span>
+                  <div className="text-[11px] text-gray-500">{formatDateTime(ws.createdAt)}</div>
                 </div>
               </div>
             </Link>

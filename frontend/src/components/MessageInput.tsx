@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Send, Paperclip, Sparkles } from "lucide-react";
+import { toast } from "@/store/toastStore";
 
 interface MessageInputProps {
   onSend: (
@@ -140,7 +141,7 @@ export const MessageInput = ({
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length + images.length > 5) {
-      alert("Maximum 5 images allowed");
+      toast.error("Maximum 5 images allowed");
       return;
     }
     setImages([...images, ...files.slice(0, 5 - images.length)]);

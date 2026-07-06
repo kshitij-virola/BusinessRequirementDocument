@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express'
+import { Router, Request, Response, NextFunction } from 'express'
 import { z } from 'zod'
 import crypto from 'crypto'
 import passport from 'passport'
@@ -309,6 +309,30 @@ router.get('/github/callback',
   async (req: Request, res: Response): Promise<void> => {
     try {
       await issueOAuthSession(req.user as unknown as IUser, res, 'github')
+    } catch {
+      res.redirect(oauthFailUrl)
+    }
+  }
+)
+
+// ── Microsoft OAuth ────────────────────────────────────────────────────────────
+
+const requireMicrosoftConfigured = (req: Request, res: Response, next: NextFunction): void => {
+  if (!env.microsoft.clientId || !env.microsoft.clientSecret) {
+    res.redirect(oauthFailUrl)
+    return
+  }
+  next()
+}
+
+router.get('/microsoft', requireMicrosoftConfigured, passport.authenticate('microsoft', { session: false }))
+
+router.get('/microsoft/callback',
+  requireMicrosoftConfigured,
+  passport.authenticate('microsoft', { session: false, failureRedirect: oauthFailUrl }),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      await issueOAuthSession(req.user as unknown as IUser, res, 'microsoft')
     } catch {
       res.redirect(oauthFailUrl)
     }

@@ -4,7 +4,7 @@ import { History, GitBranch, Download } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
-import { formatDate } from '@/lib/utils'
+import { formatDate, formatCredits } from '@/lib/utils'
 import { useWorkspaceVersions } from '@/lib/api/hooks'
 
 interface VersionHistoryButtonProps {
@@ -48,7 +48,7 @@ export const VersionHistoryButton = ({ workspaceId }: VersionHistoryButtonProps)
                 <div className="flex items-center gap-3 text-xs text-gray-500">
                   <span>{formatDate(v.createdAt)}</span>
                   <span>&middot;</span>
-                  <span>{v.creditsUsed} credit used</span>
+                  <span>{formatCredits(v.creditsUsed)} credit used</span>
                   <Badge variant={v.status === 'completed' ? 'success' : v.status === 'failed' ? 'danger' : 'muted'} className="ml-auto">{v.status}</Badge>
                 </div>
               </div>

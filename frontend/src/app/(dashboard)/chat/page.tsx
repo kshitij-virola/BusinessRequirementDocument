@@ -6,6 +6,8 @@ import { useChatStore } from '@/store/slices/chatStore';
 import { MessageList } from '@/components/MessageList';
 import { MessageInput } from '@/components/MessageInput';
 import { useParams, useRouter } from 'next/navigation';
+import { toast } from '@/store/toastStore';
+import { getErrorMessage } from '@/lib/utils';
 
 export const ChatPage = () => {
   const router = useRouter();
@@ -100,7 +102,7 @@ export const ChatPage = () => {
       startStream(threadId, res.message_id);
     } catch (error) {
       console.error('Failed to send message:', error);
-      alert('Failed to send message. Please try again.');
+      toast.error(getErrorMessage(error, 'Failed to send message. Please try again.'));
     }
   };
 
