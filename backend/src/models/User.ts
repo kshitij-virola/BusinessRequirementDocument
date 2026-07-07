@@ -37,6 +37,7 @@ export interface IUser extends Document {
   createdAt: Date
   updatedAt: Date
   comparePassword(candidate: string): Promise<boolean>
+  checkSubscription(): Promise<void>
 }
 
 const PLAN_LIMITS: Record<SubscriptionPlan, { credits: number; storageBytes: number }> = {
@@ -90,6 +91,21 @@ userSchema.methods.comparePassword = async function (candidate: string): Promise
   return bcrypt.compare(candidate, this.password)
 }
 
+userSchema.methods.checkSubscription = async function (): Promise<void> {
+  if (this.subscription.plan === 'free') return
+
+  const now = new Date()
+  const hasExpired = this.subscription.currentPeriodEnd && this.subscription.currentPeriodEnd < now
+  const isInactive = !['active', 'trialing'].includes(this.subscription.status)
+
+  if (hasExpired || isInactive) {
+    this.subscription.plan = 'free'
+    this.subscription.status = 'canceled'
+    this.storage.limitBytes = 500 * 1024 * 1024 // Reset to Free limit (500 MB)
+    await this.save()
+  }
+}
+// userSchema.index({ email: 1 })
 userSchema.index({ 'subscription.stripeCustomerId': 1 })
 
 export const User = mongoose.model<IUser>('User', userSchema)

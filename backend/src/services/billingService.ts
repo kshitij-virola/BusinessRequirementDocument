@@ -1,6 +1,7 @@
 import Stripe from 'stripe'
 import { env } from '../config/env'
 import { User, PLAN_LIMITS } from '../models/User'
+import { Plan } from '../models/Plan'
 import { AuditLog } from '../models/AuditLog'
 import { creditService } from './creditService'
 import { logger } from '../utils/logger'
@@ -55,12 +56,31 @@ export const billingService = {
         const userId = (obj.metadata as Record<string, string> | undefined)?.userId
         if (!userId) break
         const plan = ((obj.metadata as Record<string, string>)?.plan ?? 'pro') as 'pro' | 'agency'
+        const subId = obj.subscription as string
+        
+        const planDoc = await Plan.findOne({ slug: plan })
+        const credits = planDoc ? planDoc.features.generationsPerMonth : PLAN_LIMITS[plan].credits
+        const storageBytes = planDoc ? planDoc.features.storageBytes : PLAN_LIMITS[plan].storageBytes
+
+        let currentPeriodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // fallback 30 days
+        let status = 'active'
+        if (subId) {
+          try {
+            const subscription = await stripe.subscriptions.retrieve(subId) as any
+            currentPeriodEnd = new Date(subscription.current_period_end * 1000)
+            status = subscription.status
+          } catch (err: any) {
+            logger.error(`Failed to fetch Stripe subscription on checkout: ${err.message}`)
+          }
+        }
+
         await User.findByIdAndUpdate(userId, {
           'subscription.plan': plan,
-          'subscription.status': 'active',
-          'subscription.stripeSubscriptionId': obj.subscription,
-          'credits.remaining': PLAN_LIMITS[plan].credits,
-          'storage.limitBytes': PLAN_LIMITS[plan].storageBytes,
+          'subscription.status': status,
+          'subscription.stripeSubscriptionId': subId,
+          'subscription.currentPeriodEnd': currentPeriodEnd,
+          'credits.remaining': credits,
+          'storage.limitBytes': storageBytes,
         })
         await AuditLog.create({ userId, actor: 'stripe', actorRole: 'system', action: 'subscription.create', entityId: String(userId), entityType: 'User', metadata: { plan } })
         break
@@ -82,11 +102,15 @@ export const billingService = {
         const subId = obj.id as string
         const user = await User.findOne({ 'subscription.stripeSubscriptionId': subId })
         if (user) {
+          const planDoc = await Plan.findOne({ slug: 'free' })
+          const credits = planDoc ? planDoc.features.generationsPerMonth : PLAN_LIMITS.free.credits
+          const storageBytes = planDoc ? planDoc.features.storageBytes : PLAN_LIMITS.free.storageBytes
+
           await User.findByIdAndUpdate(user._id, {
             'subscription.plan': 'free',
             'subscription.status': 'canceled',
-            'credits.remaining': PLAN_LIMITS.free.credits,
-            'storage.limitBytes': PLAN_LIMITS.free.storageBytes,
+            'credits.remaining': credits,
+            'storage.limitBytes': storageBytes,
           })
           await AuditLog.create({ userId: user._id, actor: 'stripe', actorRole: 'system', action: 'subscription.cancel', entityId: String(user._id), entityType: 'User' })
         }
@@ -97,7 +121,25 @@ export const billingService = {
         const user = await User.findOne({ 'subscription.stripeCustomerId': customerId })
         if (user) {
           const plan = user.subscription.plan as 'free' | 'pro' | 'agency'
-          await creditService.reset(String(user._id), PLAN_LIMITS[plan].credits)
+          const planDoc = await Plan.findOne({ slug: plan })
+          const credits = planDoc ? planDoc.features.generationsPerMonth : PLAN_LIMITS[plan].credits
+
+          const subId = obj.subscription as string
+          let currentPeriodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // fallback 30 days
+          if (subId) {
+            try {
+              const subscription = await stripe.subscriptions.retrieve(subId) as any
+              currentPeriodEnd = new Date(subscription.current_period_end * 1000)
+            } catch (err: any) {
+              logger.error(`Failed to fetch Stripe subscription on invoice success: ${err.message}`)
+            }
+          }
+
+          await creditService.reset(String(user._id), credits)
+          await User.findByIdAndUpdate(user._id, {
+            'subscription.currentPeriodEnd': currentPeriodEnd,
+            'subscription.status': 'active',
+          })
           await AuditLog.create({
             userId: user._id, actor: 'stripe', actorRole: 'system', action: 'payment.success',
             entityId: String(user._id), entityType: 'User',

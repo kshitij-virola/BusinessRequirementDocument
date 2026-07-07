@@ -1,6 +1,6 @@
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
-import archiver from 'archiver'
+import archiver = require('archiver')
 import { PassThrough } from 'stream'
 import fs from 'fs'
 import path from 'path'
@@ -101,7 +101,8 @@ export const storageService = {
 
   async packToZip(files: { path: string; content: string }[]): Promise<Buffer> {
     return new Promise((resolve, reject) => {
-      const archive = archiver('zip', { zlib: { level: 9 } })
+      const { ZipArchive } = archiver as any
+      const archive = new ZipArchive({ zlib: { level: 9 } })
       const chunks: Buffer[] = []
       const pass = new PassThrough()
 

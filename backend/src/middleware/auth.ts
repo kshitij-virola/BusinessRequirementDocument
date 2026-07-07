@@ -5,6 +5,7 @@ import { error } from '../utils/apiResponse'
 
 export interface AuthRequest extends Request {
   user?: { userId: string; role: string; email: string }
+  _creditCost?: number
 }
 
 export const authenticate = (req: AuthRequest, res: Response, next: NextFunction): void => {

@@ -1,5 +1,6 @@
 import { Router, Response } from 'express'
 import { User, PLAN_LIMITS } from '../../models/User'
+import { Plan } from '../../models/Plan'
 import { AuditLog } from '../../models/AuditLog'
 import { authenticate, AuthRequest } from '../../middleware/auth'
 import { requireAdmin, requireSuperAdmin } from '../../middleware/rbac'
@@ -92,7 +93,9 @@ router.patch('/:id/reset-credits', async (req: AuthRequest, res: Response): Prom
   const user = await User.findById(id)
   if (!user) { error(res, 'User not found', 404); return }
   const plan = user.subscription.plan as 'free' | 'pro' | 'agency'
-  await creditService.reset(id, PLAN_LIMITS[plan].credits)
+  const planDoc = await Plan.findOne({ slug: plan })
+  const credits = planDoc ? planDoc.features.generationsPerMonth : PLAN_LIMITS[plan].credits
+  await creditService.reset(id, credits)
   await AuditLog.create({ userId: req.user!.userId, actor: req.user!.email, actorRole: req.user!.role, action: 'admin.reset_credits', entityId: id, entityType: 'User' })
   success(res, null, 'Credits reset')
 })

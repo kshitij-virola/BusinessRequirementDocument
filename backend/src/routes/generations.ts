@@ -5,6 +5,7 @@ import { Generation } from '../models/Generation'
 import { Workspace } from '../models/Workspace'
 import { AuditLog } from '../models/AuditLog'
 import { User } from '../models/User'
+import { Plan } from '../models/Plan'
 import { authenticate, AuthRequest } from '../middleware/auth'
 import { checkCredits } from '../middleware/creditCheck'
 import { validate } from '../middleware/validate'
@@ -26,9 +27,23 @@ router.post('/upload-image', upload.single('image'), async (req: AuthRequest, re
 
   try {
     const userId = req.user!.userId
+    const user = await User.findById(userId)
+    if (!user) { error(res, 'User not found', 404); return }
+
+    const fileSize = req.file.buffer.length
+    if (user.storage.usedBytes + fileSize > user.storage.limitBytes) {
+      error(res, 'Storage limit exceeded. Please upgrade your plan or delete existing files.', 400)
+      return
+    }
+
     const fileExtension = req.file.originalname.split('.').pop() || 'png'
     const key = `generations/${userId}/${Date.now()}.${fileExtension}`
     const url = await storageService.uploadBuffer(key, req.file.buffer, req.file.mimetype)
+
+    // Update user's used bytes
+    user.storage.usedBytes += fileSize
+    await user.save()
+
     success(res, { key, url })
   } catch (err: any) {
     error(res, err.message || 'Upload failed', 500)
@@ -42,6 +57,15 @@ router.post('/upload-images', upload.array('images', 10), async (req: AuthReques
 
   try {
     const userId = req.user!.userId
+    const user = await User.findById(userId)
+    if (!user) { error(res, 'User not found', 404); return }
+
+    const totalSize = files.reduce((sum, f) => sum + f.buffer.length, 0)
+    if (user.storage.usedBytes + totalSize > user.storage.limitBytes) {
+      error(res, 'Storage limit exceeded. Please upgrade your plan or delete existing files.', 400)
+      return
+    }
+
     const uploads = await Promise.all(
       files.map(async (file) => {
         const ext = file.originalname.split('.').pop() || 'png'
@@ -50,6 +74,11 @@ router.post('/upload-images', upload.array('images', 10), async (req: AuthReques
         return { key, url }
       })
     )
+
+    // Update user's used bytes
+    user.storage.usedBytes += totalSize
+    await user.save()
+
     success(res, { uploads })
   } catch (err: any) {
     error(res, err.message || 'Upload failed', 500)
@@ -69,7 +98,7 @@ const generateSchema = z.object({
 })
 
 // POST /api/generations — enqueue a new generation
-router.post('/', checkCredits('textGeneration'), validate(generateSchema), async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/', checkCredits(), validate(generateSchema), async (req: AuthRequest, res: Response): Promise<void> => {
   const userId = req.user!.userId
 
   const workspace = await Workspace.findOne({ _id: req.body.workspaceId, userId })
@@ -89,7 +118,7 @@ router.post('/', checkCredits('textGeneration'), validate(generateSchema), async
     imageKey:  req.body.imageKey,
     imageKeys: req.body.imageKeys,
     status:    'pending',
-    creditsUsed: req.body._creditCost,
+    creditsUsed: req._creditCost || 0,
   })
 
   await Workspace.findByIdAndUpdate(req.body.workspaceId, { $inc: { currentVersion: 1, totalGenerations: 1 } })
@@ -156,12 +185,44 @@ router.get('/:id/download', async (req: AuthRequest, res: Response): Promise<voi
 
   let downloadUrl = gen.zipUrl
   if (!downloadUrl && gen.outputFiles?.length) {
+    const userId = req.user!.userId
+    const user = await User.findById(userId)
+    if (!user) { error(res, 'User not found', 404); return }
+    await user.checkSubscription()
+
+    // Check credits for themeExport
+    const plan = await Plan.findOne({ slug: user.subscription.plan, isActive: true })
+    let cost = 2 // default fallback for themeExport
+    if (plan && plan.creditCosts && plan.creditCosts.themeExport !== undefined) {
+      cost = plan.creditCosts.themeExport
+    }
+
+    if (user.credits.remaining < cost) {
+      error(res, 'Insufficient credits to export theme. Please upgrade your plan.', 402, {
+        required: cost,
+        remaining: user.credits.remaining,
+      })
+      return
+    }
+
     const zipBuffer = await storageService.packToZip(gen.outputFiles)
     const key = `themes/${req.user!.userId}/${gen._id}/theme.zip`
     downloadUrl = await storageService.uploadBuffer(key, zipBuffer, 'application/zip')
     gen.zipKey = key
     gen.zipUrl = downloadUrl
     await gen.save()
+
+    // Deduct credits and log
+    await creditService.deduct(userId, cost, `export:${gen._id}`)
+    await AuditLog.create({
+      userId,
+      actor: user.email,
+      actorRole: user.role,
+      action: 'theme.export',
+      entityId: String(gen._id),
+      entityType: 'Generation',
+      metadata: { cost }
+    })
   }
 
   if (!downloadUrl) { error(res, 'Download not available', 404); return }

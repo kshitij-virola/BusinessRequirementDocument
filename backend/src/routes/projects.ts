@@ -3,6 +3,7 @@ import { z } from 'zod'
 import mongoose from 'mongoose'
 import { Project } from '../models/Project'
 import { User } from '../models/User'
+import { Plan } from '../models/Plan'
 import { AuditLog } from '../models/AuditLog'
 import { authenticate, AuthRequest } from '../middleware/auth'
 import { validate } from '../middleware/validate'
@@ -41,6 +42,24 @@ router.post('/', validate(createSchema), async (req: AuthRequest, res: Response)
   const userId = req.user!.userId
   const user = await User.findById(userId)
   if (!user) { error(res, 'User not found', 404); return }
+  await user.checkSubscription()
+
+  // Check project limit based on plan features
+  const activeCount = await Project.countDocuments({ userId, status: { $ne: 'deleted' } })
+  const plan = await Plan.findOne({ slug: user.subscription.plan, isActive: true })
+  let limit = 2 // default fallback for Free plan
+  if (plan) {
+    limit = plan.features.projects
+  } else {
+    // Fallback static limits if plan not found in database
+    const planLimits = { free: 2, pro: 25, agency: 999999 }
+    limit = planLimits[user.subscription.plan as keyof typeof planLimits] ?? 2
+  }
+
+  if (activeCount >= limit) {
+    error(res, `Project limit reached for your plan (${limit} projects). Please upgrade your plan.`, 402)
+    return
+  }
 
   const project = await Project.create({ userId, ...req.body })
   await AuditLog.create({

@@ -77,13 +77,13 @@ router.post('/', validate(createSchema), async (req: AuthRequest, res: Response)
     }
   }
 
-  // const planLimits = { free: 2, pro: 25, agency: Infinity }
+  const planLimits = { free: 2, pro: 25, agency: Infinity }
   const user = await User.findById(userId)
   if (!user) { error(res, 'User not found', 404); return }
-
-  // const count = await Workspace.countDocuments({ userId, status: { $ne: 'deleted' } })
-  // const limit = planLimits[user.subscription.plan as keyof typeof planLimits] ?? 2
-  // if (count >= limit) { error(res, `Workspace limit reached for your plan (${limit})`, 402); return }
+  await user.checkSubscription()
+  const count = await Workspace.countDocuments({ userId, status: { $ne: 'deleted' } })
+  const limit = planLimits[user.subscription.plan as keyof typeof planLimits] ?? 2
+  if (count >= limit) { error(res, `Workspace limit reached for your plan (${limit} projects). Please upgrade your plan.`, 402); return }
 
   if (user.credits.remaining <= 0) {
     error(res, 'Insufficient credits to create a new workspace. Please upgrade your plan or wait for your credits to reset.', 402)

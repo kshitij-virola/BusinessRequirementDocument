@@ -4,7 +4,7 @@ import { logger } from '../utils/logger'
 
 export const connectDB = async (): Promise<void> => {
   try {
-    await mongoose.connect(env.mongoUri)
+    await mongoose.connect(env.mongoUri, { serverSelectionTimeoutMS: 20000 })
     logger.info('MongoDB connected')
 
     mongoose.connection.on('error', (err) => {

@@ -191,18 +191,8 @@ const NotificationBell = () => {
 
   return (
     <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="relative rounded-xl p-2 text-muted hover:bg-secondary hover:text-foreground transition-colors duration-150"
-      >
-        <Bell className="h-5 w-5" />
-        {unread > 0 && (
-          <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-white">
-            {unread}
-          </span>
-        )}
-      </button>
+      {/* <button type="button" onClick={() => setOpen((o) => !o)} className="relative rounded-xl p-2 text-muted hover:bg-secondary hover:text-foreground transition-colors duration-150">
+        <Bell className="h-5 w-5" />{unread > 0 && (<span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-white">{unread}</span>)}</button> */}
 
       {open && (
         <div className="absolute right-0 top-full mt-2 w-72 sm:w-80 rounded-2xl border border-border bg-card z-50 overflow-hidden"

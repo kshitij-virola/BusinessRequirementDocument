@@ -4,7 +4,7 @@ export type AuditAction =
   | 'user.register' | 'user.login' | 'user.logout' | 'user.password_reset' | 'user.deactivate'
   | 'workspace.create' | 'workspace.rename' | 'workspace.archive' | 'workspace.delete'
   | 'project.create' | 'project.update' | 'project.archive' | 'project.delete'
-  | 'generation.start' | 'generation.complete' | 'generation.fail'
+  | 'generation.start' | 'generation.complete' | 'generation.fail' | 'theme.export'
   | 'credits.deduct' | 'credits.reset'
   | 'subscription.create' | 'subscription.upgrade' | 'subscription.cancel'
   | 'payment.success' | 'payment.failed' | 'payment.refund'
