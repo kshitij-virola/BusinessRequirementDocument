@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { LogOut } from 'lucide-react'
 import { logout } from '@/app/actions/auth'
+import { authApi } from '@/lib/api/auth'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 
@@ -11,6 +12,14 @@ interface SignOutButtonProps {
 
 const SignOutButton = ({ className }: SignOutButtonProps) => {
   const [open, setOpen] = useState(false)
+
+  // Server action can't reach the client's localStorage-held access token,
+  // so revoke it and clear it here before the form hands off to `logout()`
+  // for the httpOnly cookie cleanup + redirect.
+  const handleSignOutSubmit = () => {
+    authApi.logout().catch(() => {})
+  }
+
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} className={className}>
@@ -29,7 +38,7 @@ const SignOutButton = ({ className }: SignOutButtonProps) => {
           <Button variant="secondary" type="button" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <form action={logout}>
+          <form action={logout} onSubmit={handleSignOutSubmit}>
             <Button type="submit" className="bg-red-600 hover:bg-red-500 text-foreground border-0">
               Sign out
             </Button>

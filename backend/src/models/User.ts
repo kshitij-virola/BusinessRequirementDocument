@@ -21,6 +21,7 @@ export interface IUser extends Document {
     currentPeriodEnd?: Date
     status: 'active' | 'canceled' | 'past_due' | 'trialing'
   }
+  trialEndsAt?: Date
   credits: {
     remaining: number
     used: number
@@ -40,10 +41,58 @@ export interface IUser extends Document {
   checkSubscription(): Promise<void>
 }
 
-const PLAN_LIMITS: Record<SubscriptionPlan, { credits: number; storageBytes: number }> = {
+const STATIC_PLAN_LIMITS: Record<SubscriptionPlan, { credits: number; storageBytes: number }> = {
   free:   { credits: 25,   storageBytes: 500 * 1024 * 1024   },
   pro:    { credits: 500,  storageBytes: 10  * 1024 * 1024 * 1024  },
   agency: { credits: 5000, storageBytes: 100 * 1024 * 1024 * 1024 },
+}
+
+let planLimitsCache: typeof STATIC_PLAN_LIMITS | null = null
+
+export const loadPlanLimits = async (): Promise<void> => {
+  try {
+    const PlanModel = mongoose.model('Plan')
+    const plans = await PlanModel.find({ isActive: true })
+    const newLimits = { ...STATIC_PLAN_LIMITS }
+    for (const plan of plans) {
+      const slug = plan.slug as SubscriptionPlan
+      if (newLimits[slug]) {
+        newLimits[slug] = {
+          credits: plan.features?.generationsPerMonth ?? STATIC_PLAN_LIMITS[slug].credits,
+          storageBytes: plan.features?.storageBytes ?? STATIC_PLAN_LIMITS[slug].storageBytes,
+        }
+      }
+    }
+    planLimitsCache = newLimits
+  } catch (err) {
+    // Fail silently, falls back to static limits
+  }
+}
+
+// Automatically load when connection is ready or established
+if (mongoose.connection.readyState === 1) {
+  loadPlanLimits().catch(() => {})
+} else {
+  mongoose.connection.on('connected', () => {
+    loadPlanLimits().catch(() => {})
+  })
+}
+
+// Listen to plan changes to refresh cache
+mongoose.connection.on('plan_changed', () => {
+  loadPlanLimits().catch(() => {})
+})
+
+const PLAN_LIMITS = {
+  get free() {
+    return planLimitsCache?.free ?? STATIC_PLAN_LIMITS.free
+  },
+  get pro() {
+    return planLimitsCache?.pro ?? STATIC_PLAN_LIMITS.pro
+  },
+  get agency() {
+    return planLimitsCache?.agency ?? STATIC_PLAN_LIMITS.agency
+  }
 }
 
 const userSchema = new Schema<IUser>(
@@ -64,14 +113,15 @@ const userSchema = new Schema<IUser>(
       currentPeriodEnd:     { type: Date },
       status:               { type: String, enum: ['active', 'canceled', 'past_due', 'trialing'], default: 'active' },
     },
+    trialEndsAt: { type: Date },
     credits: {
-      remaining: { type: Number, default: 25 },
+      remaining: { type: Number, default: () => PLAN_LIMITS.free.credits },
       used:      { type: Number, default: 0  },
       resetAt:   { type: Date,   default: () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) },
     },
     storage: {
       usedBytes:  { type: Number, default: 0 },
-      limitBytes: { type: Number, default: PLAN_LIMITS.free.storageBytes },
+      limitBytes: { type: Number, default: () => PLAN_LIMITS.free.storageBytes },
     },
     permissions:          { type: [String], default: [] },
     passwordResetToken:   { type: String, select: false },
@@ -101,7 +151,7 @@ userSchema.methods.checkSubscription = async function (): Promise<void> {
   if (hasExpired || isInactive) {
     this.subscription.plan = 'free'
     this.subscription.status = 'canceled'
-    this.storage.limitBytes = 500 * 1024 * 1024 // Reset to Free limit (500 MB)
+    this.storage.limitBytes = PLAN_LIMITS.free.storageBytes || 500 * 1024 * 1024 // Reset to Free limit (500 MB)
     await this.save()
   }
 }

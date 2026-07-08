@@ -107,7 +107,7 @@ const OAuthButtons = ({ dividerLabel = 'or continue with' }: OAuthButtonsProps) 
         <Button
           variant="secondary"
           type="button"
-          className="gap-2"
+          className="col-span-2 gap-2"
           loading={oauthLoading === 'google'}
           disabled={oauthLoading !== null}
           onClick={handleGoogleLogin}
@@ -134,7 +134,7 @@ const OAuthButtons = ({ dividerLabel = 'or continue with' }: OAuthButtonsProps) 
         <Button
           variant="secondary"
           type="button"
-          className="col-span-2 gap-2"
+          className="gap-2"
           loading={oauthLoading === 'microsoft'}
           disabled={oauthLoading !== null}
           onClick={handleMicrosoftLogin}

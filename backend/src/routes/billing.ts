@@ -47,9 +47,17 @@ router.post('/portal', authenticate, async (req: AuthRequest, res: Response): Pr
 
 // POST /api/billing/webhook — Stripe webhook handler
 router.post('/webhook', async (req: Request, res: Response): Promise<void> => {
+  // raw body is required for Stripe signature verification
+  const chunks: Buffer[] = []
+  for await (const chunk of req) {
+    if (typeof chunk === 'string') chunks.push(Buffer.from(chunk))
+    else chunks.push(chunk)
+  }
+  const rawBody = Buffer.concat(chunks)
+
   const sig = req.headers['stripe-signature'] as string
   try {
-    await billingService.handleWebhook(req.body as Buffer, sig)
+    await billingService.handleWebhook(rawBody, sig)
     res.json({ received: true })
   } catch (err) {
     res.status(400).json({ error: String(err) })

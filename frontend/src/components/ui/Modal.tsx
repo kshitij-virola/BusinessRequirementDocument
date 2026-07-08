@@ -1,5 +1,6 @@
 'use client'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -14,6 +15,11 @@ interface ModalProps {
 
 export const Modal = ({ open, onClose, title, description, children, size = 'md' }: ModalProps) => {
   const overlayRef = useRef<HTMLDivElement>(null)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     if (!open) return
@@ -28,11 +34,14 @@ export const Modal = ({ open, onClose, title, description, children, size = 'md'
     }
   }, [open, onClose])
 
-  if (!open) return null
+  if (!open || !mounted) return null
 
   const sizes = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-lg' }
 
-  return (
+  // Rendered into document.body so ancestors with `backdrop-filter`/`filter`/`transform`
+  // (e.g. the topbar's backdrop-blur) can't turn into a containing block and
+  // confine this `fixed` overlay to their own box instead of the viewport.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div ref={overlayRef} className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <div className={cn('relative w-full rounded-2xl border border-border bg-card shadow-2xl', sizes[size])}>
@@ -49,6 +58,7 @@ export const Modal = ({ open, onClose, title, description, children, size = 'md'
         )}
         <div className="p-5">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

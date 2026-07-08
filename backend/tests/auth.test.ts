@@ -4,12 +4,17 @@ import { User } from '../src/models/User'
 
 describe('Auth API', () => {
   describe('POST /api/auth/register', () => {
-    it('registers a new user', async () => {
+    it('registers a new user with default free plan', async () => {
       const res = await request(app).post('/api/auth/register').send({
         name: 'Test User', email: 'test@example.com', password: 'Test1234!',
       })
       expect(res.status).toBe(201)
       expect(res.body.success).toBe(true)
+
+      const user = await User.findOne({ email: 'test@example.com' })
+      expect(user).not.toBeNull()
+      expect(user!.subscription.plan).toBe('free')
+      expect(user!.subscription.status).toBe('active')
     })
 
     it('rejects duplicate email', async () => {

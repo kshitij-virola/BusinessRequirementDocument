@@ -129,9 +129,11 @@ const bootstrap = async (): Promise<void> => {
   })
 }
 
-bootstrap().catch((err) => {
-  logger.error('Bootstrap failed:', err)
-  process.exit(1)
-})
+if (process.env.NODE_ENV !== 'test') {
+  bootstrap().catch((err) => {
+    logger.error('Bootstrap failed:', err)
+    process.exit(1)
+  })
+}
 
 export { app, server }

@@ -8,10 +8,10 @@ import { ChatPromptInput } from '@/components/landing/ChatPromptInput'
 import ThemeToggle from '@/components/ui/ThemeToggle'
 
 const features = [
-  { icon: Zap, title: 'Text Prompt to Theme', description: 'Describe what you want and get a complete theme in seconds.', accent: 'violet' as const },
-  { icon: Code2, title: 'Figma to HTML', description: 'Paste any Figma URL and get production-ready HTML/CSS instantly.', accent: 'emerald' as const },
-  { icon: ImageIcon, title: 'Image to Code', description: 'Upload a screenshot and convert any UI design to clean code.', accent: 'amber' as const },
-  { icon: Download, title: 'Download Source Code', description: 'Export complete theme packages as ZIP with all assets included.', accent: 'blue' as const },
+  { icon: Zap,       title: 'Text Prompt to Theme', description: 'Describe what you want and get a complete theme in seconds.',      accent: 'violet' as const },
+  { icon: Code2,     title: 'Figma to HTML',        description: 'Paste any Figma URL and get production-ready HTML/CSS instantly.', accent: 'emerald' as const },
+  { icon: ImageIcon, title: 'Image to Code',        description: 'Upload a screenshot and convert any UI design to clean code.',     accent: 'amber' as const },
+  { icon: Download,  title: 'Download Source Code', description: 'Export complete theme packages as ZIP with all assets included.',  accent: 'blue' as const },
 ]
 
 const accentMap = {

@@ -210,15 +210,13 @@ const BillingPage = () => {
       </div>
 
       {/* Pricing cards */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {plansLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, i) => (
+          Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="rounded-xl border border-border bg-card p-5 sm:p-6 h-80 animate-pulse" />
-          ))}
-        </div>
+          ))
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {plans?.map((plan, idx) => {
+        plans?.map((plan, idx) => {
             const price = billing === 'yearly' ? plan.yearlyPrice : plan.monthlyPrice
             const isCurrent = plan.slug === currentPlanSlug
             const hasAnyPopular = plans.some(p => p.isPopular)
@@ -300,9 +298,9 @@ const BillingPage = () => {
                 )}
               </div>
             )
-          })}
-        </div>
+          })
       )}
+      </div>
     </div>
   )
 }

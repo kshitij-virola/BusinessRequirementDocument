@@ -171,6 +171,7 @@ export const logout = async () => {
   }
   const cookieStore = await cookies()
   cookieStore.delete('refreshToken')
+  cookieStore.delete('troo_at')
   await deleteSession()
   redirect('/login')
 }

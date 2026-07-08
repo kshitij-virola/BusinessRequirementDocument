@@ -2,7 +2,7 @@ import mongoose, { Document, Schema } from 'mongoose'
 
 export interface IPlan extends Document {
   name: string
-  slug: 'free' | 'pro' | 'agency'
+  slug: string // 'free' | 'pro' | 'agency'
   monthlyPrice: number
   yearlyPrice: number
   stripePriceIdMonthly?: string
@@ -60,5 +60,16 @@ const planSchema = new Schema<IPlan>(
   },
   { timestamps: true }
 )
+
+const emitPlanChanged = () => {
+  mongoose.connection.emit('plan_changed')
+}
+
+planSchema.post('save', emitPlanChanged)
+planSchema.post('updateOne', emitPlanChanged)
+planSchema.post('updateMany', emitPlanChanged)
+planSchema.post('findOneAndUpdate', emitPlanChanged)
+planSchema.post('deleteOne', emitPlanChanged)
+planSchema.post('deleteMany', emitPlanChanged)
 
 export const Plan = mongoose.model<IPlan>('Plan', planSchema)

@@ -26,21 +26,15 @@ export const checkCredits = (defaultAction?: ActionType) => {
     let action: ActionType = defaultAction || 'textGeneration'
     if (!defaultAction) {
       const mode = req.body?.inputMode
-      if (mode === 'image') {
-        action = 'imageConversion'
-      } else if (mode === 'figma') {
-        action = 'figmaConversion'
-      } else {
-        action = 'textGeneration'
-      }
+      if (mode === 'image') action = 'imageConversion'
+      else if (mode === 'figma') action = 'figmaConversion'
+      else action = 'textGeneration'
     }
 
     // Fetch dynamic cost from Plan features in the database
     const plan = await Plan.findOne({ slug: user.subscription.plan, isActive: true })
     let cost = CREDIT_COSTS[action]
-    if (plan && plan.creditCosts && plan.creditCosts[action] !== undefined) {
-      cost = plan.creditCosts[action]
-    }
+    if (plan && plan.creditCosts && plan.creditCosts[action] !== undefined) cost = plan.creditCosts[action]
 
     if (user.credits.remaining < cost) {
       error(res, 'Insufficient credits. Please upgrade your plan.', 402, {

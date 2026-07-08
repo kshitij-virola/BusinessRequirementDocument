@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Send, Paperclip, Sparkles } from "lucide-react";
 import { toast } from "@/store/toastStore";
+import { useMe } from "@/lib/api/hooks";
 
 interface MessageInputProps {
   onSend: (
@@ -73,8 +75,10 @@ export const MessageInput = ({
   isFirstMessage,
   hideSuggestion = false,
 }: MessageInputProps) => {
+  const { data: me } = useMe();
   const [content, setContent] = useState("");
   const [images, setImages] = useState<File[]>([]);
+  const isFreePlan = me?.subscription.plan === "free";
   const [mode, setMode] = useState<
     "website" | "ui" | "wordpress_divi_child" | "reactjs" | "angular" | "vuejs"
   >("website");
@@ -120,6 +124,10 @@ export const MessageInput = ({
     };
   }, []);
 
+  useEffect(() => {
+    if (isFreePlan && mode !== "ui") setMode("ui");
+  }, [isFreePlan, mode]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim() && images.length === 0) return;
@@ -158,42 +166,44 @@ export const MessageInput = ({
         {isFirstMessage && (
           <div className="mb-4 space-y-3">
             <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider">
-              Generation Mode
+              Generation Mode{" "}
+              {isFreePlan && "(Free plan is limited to UI Only generation)"}
             </label>
-            <div className="grid grid-cols-3 sm:grid-cols-3 gap-2">
-              {modes.map((m) => (
-                <button
-                  key={m.value}
-                  type="button"
-                  onClick={() => setMode(m.value as typeof mode)}
-                  className={cn(
-                    "p-3 rounded-xl text-left transition-all border",
-                    mode === m.value
-                      ? "bg-primary/20 border-primary/60 text-primary"
-                      : "bg-card border-border text-gray-400 hover:border-primary/30 hover:text-foreground",
-                  )}
-                >
-                  {m.img ? (
-                    <img
-                      src={m.img}
-                      alt={m.label}
-                      height="20"
-                      width="20"
-                      className="mb-1"
-                    />
-                  ) : (
-                    <div className="text-xl mb-1">{m.icon}</div>
-                  )}
-                  <div className="text-xl font-semibold leading-tight">
-                    {m.label}
-                  </div>
-                  <div className="text-md opacity-60 hidden sm:block">
-                    {m.description}
-                  </div>
-                </button>
-              ))}
-            </div>
-
+            {!isFreePlan && (
+              <div className="grid grid-cols-3 sm:grid-cols-3 gap-2">
+                {modes.map((m) => (
+                  <button
+                    key={m.value}
+                    type="button"
+                    onClick={() => setMode(m.value as typeof mode)}
+                    className={cn(
+                      "p-3 rounded-xl text-left transition-all border",
+                      mode === m.value
+                        ? "bg-primary/20 border-primary/60 text-primary"
+                        : "bg-card border-border text-gray-400 hover:border-primary/30 hover:text-foreground",
+                    )}
+                  >
+                    {m.img ? (
+                      <img
+                        src={m.img}
+                        alt={m.label}
+                        height="20"
+                        width="20"
+                        className="mb-1"
+                      />
+                    ) : (
+                      <div className="text-xl mb-1">{m.icon}</div>
+                    )}
+                    <div className="text-xl font-semibold leading-tight">
+                      {m.label}
+                    </div>
+                    <div className="text-md opacity-60 hidden sm:block">
+                      {m.description}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
             {(mode === "ui" ||
               mode === "reactjs" ||
               mode === "angular" ||
@@ -243,6 +253,15 @@ export const MessageInput = ({
               </div>
             </div>
           </div>
+        )}
+        {isFreePlan && (
+          <p className="text-xs text-gray-500 mb-4">
+            Free plan is limited to UI Only generation.{" "}
+            <Link href="/billing" className="text-primary hover:underline">
+              Upgrade your plan
+            </Link>{" "}
+            to unlock all modes.
+          </p>
         )}
         {/* Image Preview */}
         {images.length > 0 && (

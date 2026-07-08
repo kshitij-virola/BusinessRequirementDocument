@@ -20,9 +20,7 @@ async function connectWithRetry() {
       return
     } catch (err: any) {
       console.warn(`Attempt ${attempt} failed: ${err.message}`)
-      if (attempt === maxAttempts) {
-        throw err
-      }
+      if (attempt === maxAttempts) throw err
       console.log('Waiting 3 seconds before next attempt...')
       await new Promise(resolve => setTimeout(resolve, 3000))
     }
@@ -87,11 +85,9 @@ async function run() {
   await bob.save()
 
   let userFresh = await User.findById(bob._id)
-  if (userFresh && userFresh.credits.remaining < themeExportCost) {
+  if (userFresh && userFresh.credits.remaining < themeExportCost)
     console.log(`[PASS] Correctly blocked export: Remaining credits (${userFresh.credits.remaining}) < Cost (${themeExportCost})`)
-  } else {
-    console.error(`[FAIL] Export check failed to block with insufficient credits.`)
-  }
+  else console.error(`[FAIL] Export check failed to block with insufficient credits.`)
 
   // Case B: Sufficient credits (Set to 5)
   console.log('Setting Bob\'s credits to 5 (sufficient)...')
@@ -102,11 +98,9 @@ async function run() {
   await creditService.deduct(String(bob._id), themeExportCost, 'test_export_deduction')
   userFresh = await User.findById(bob._id)
   console.log(`Credits remaining after deduction: ${userFresh?.credits.remaining}`)
-  if (userFresh && userFresh.credits.remaining === 5 - themeExportCost) {
+  if (userFresh && userFresh.credits.remaining === 5 - themeExportCost)
     console.log(`[PASS] Successfully deducted ${themeExportCost} credits for export!`)
-  } else {
-    console.error(`[FAIL] Expected ${5 - themeExportCost} credits remaining, but got ${userFresh?.credits.remaining}`)
-  }
+  else console.error(`[FAIL] Expected ${5 - themeExportCost} credits remaining, but got ${userFresh?.credits.remaining}`)
 
   // Restore Bob\'s original credits
   bob.credits.remaining = origBobCredits

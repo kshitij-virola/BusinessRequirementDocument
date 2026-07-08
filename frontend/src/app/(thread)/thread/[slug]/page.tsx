@@ -243,198 +243,6 @@ function stripImports(code: string): string {
     .replace(/import\s+['"][^'"]+['"];?/g, "");
 }
 
-// Unlike stripImports (which deletes the whole statement), this keeps every
-// bound name alive by pointing it at the sandbox's require() shim — needed
-// because generated code sometimes accesses a namespace/default import's
-// properties (e.g. `RouterDom.MemoryRouter`), which would otherwise throw
-// once the import line disappears and the name is left undefined.
-function transformReactImports(code: string): string {
-  const namedList = (raw: string) =>
-    raw
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .map((s) => s.replace(/^type\s+/, "").replace(/\s+as\s+/, ": "))
-      .join(", ");
-
-  return code
-    .replace(
-      /import\s+(?:type\s+)?\{([^}]*)\}\s*from\s+['"]([^'"]+)['"];?/g,
-      (_match, namedPart: string, moduleName: string) => {
-        const named = namedList(namedPart);
-        return named ? `var { ${named} } = require(${JSON.stringify(moduleName)});` : "";
-      },
-    )
-    .replace(
-      /import\s+(?:type\s+)?(?:\*\s+as\s+)?([A-Za-z_$][\w$]*)\s*,?\s*(?:\{([^}]*)\})?\s*from\s+['"]([^'"]+)['"];?/g,
-      (_match, defaultName: string, namedPart: string | undefined, moduleName: string) => {
-        const req = `require(${JSON.stringify(moduleName)})`;
-        const lines = [`var ${defaultName} = ${req};`];
-        const named = namedPart ? namedList(namedPart) : "";
-        if (named) lines.push(`var { ${named} } = ${req};`);
-        return lines.join(" ");
-      },
-    )
-    .replace(/import\s+['"][^'"]+['"];?/g, "");
-}
-
-function buildReactPreviewHtml(contentMap: Map<string, string>): string {
-  const cssContent = [...contentMap.entries()]
-    .filter(([path]) => /\.css$/i.test(path))
-    .map(([, c]) => c)
-    .join("\n");
-
-  const tsxFiles = [...contentMap.entries()]
-    .filter(
-      ([path]) =>
-        /\.(tsx?|jsx?)$/i.test(path) &&
-        !/\.d\.ts$/i.test(path) &&
-        !/node_modules/i.test(path) &&
-        !/\.config\.(tsx?|jsx?)$/i.test(path) &&
-        !/\.(test|spec|stories)\.(tsx?|jsx?)$/i.test(path) &&
-        !/\/__(tests|mocks)__\//i.test(path),
-    )
-    .sort(([a], [b]) => {
-      const aEntry = /\/(index|main)\.(tsx?|jsx?)$/i.test(a);
-      const bEntry = /\/(index|main)\.(tsx?|jsx?)$/i.test(b);
-      return aEntry === bEntry ? a.localeCompare(b) : aEntry ? 1 : -1;
-    });
-
-  // Collect every uppercase-leading identifier from source as a component candidate.
-  // eval() inside new Function sees the function's own local scope, so this
-  // reliably finds components regardless of their name.
-  // Seed with common AI-generated component names as safe fallbacks.
-  const seen = new Set<string>(["__defaultExport__", "App", "Home", "Page", "Main", "Root"]);
-  const candidates: string[] = ["__defaultExport__", "App", "Home", "Page", "Main", "Root"];
-  const push = (n: string) => {
-    if (/^[A-Z]/.test(n) && !seen.has(n)) { seen.add(n); candidates.push(n); }
-  };
-  for (const [, src] of tsxFiles) {
-    // export default function/class Name (no ^ so indented declarations are also found)
-    src.replace(/export\s+default\s+(?:function|class)\s+([A-Z]\w*)/g,
-      (_, n) => { push(n); return _; });
-    // export default Name (bare identifier re-export)
-    src.replace(/export\s+default\s+([A-Z]\w*)\s*[;({[\n]/g,
-      (_, n) => { push(n); return _; });
-    // export function/const/class/let/var Name
-    src.replace(/export\s+(?:function|const|class|let|var)\s+([A-Z]\w*)/g,
-      (_, n) => { push(n); return _; });
-    // any const/let/var/function/class Name — drop ^ so indented declarations match
-    src.replace(/(?:const|let|var|function|class)\s+([A-Z]\w*)/g,
-      (_, n) => { push(n); return _; });
-  }
-
-  const combinedScript = tsxFiles
-    .map(([, content]) =>
-      transformReactImports(content)
-        .replace(
-          /^export\s+\{\s*(\w+)\s+as\s+default(?:\s*,[^}]*)?\s*\}\s*;?/gm,
-          "var __defaultExport__ = $1;",
-        )
-        .replace(/^export\s+default\s+/gm, "var __defaultExport__ = ")
-        .replace(/^export\s+\{[^}]*\}\s*;?\s*$/gm, "")
-        .replace(/^export\s+(?!default)/gm, ""),
-    )
-    .join("\n\n");
-
-  const encodedSrc = JSON.stringify(combinedScript);
-  const encodedNames = JSON.stringify(candidates);
-  // Generate direct typeof checks for each candidate.
-  // Embedding variable names as literal identifiers (not eval strings) works
-  // reliably in all JS modes, including Babel's "use strict" output.
-  const candidateChecks = candidates
-    .map(n => `\nif(typeof ${n}==="function")return ${n};`)
-    .join("");
-  const encodedChecks = JSON.stringify(candidateChecks);
-
-  return `<!DOCTYPE html>
-            <html lang="en">
-            <head>
-              <meta charset="UTF-8"/>
-              <meta name="viewport" content="width=device-width,initial-scale=1"/>
-              <style>*{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif}${cssContent}</style>
-            </head>
-            <body>
-              <div id="root"><p style="padding:12px;color:#888;font-size:13px">Loading…</p></div>
-              <script id="__src__" type="application/json">${encodedSrc}</script>
-              <script id="__names__" type="application/json">${encodedNames}</script>
-              <script id="__checks__" type="application/json">${encodedChecks}</script>
-              <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-              <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-              <script src="https://unpkg.com/@remix-run/router@1/dist/router.umd.js"></script>
-              <script src="https://unpkg.com/react-router@6/dist/umd/react-router.development.js"></script>
-              <script src="https://unpkg.com/react-router-dom@6/dist/umd/react-router-dom.development.js"></script>
-              <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-              <script>
-                window.addEventListener('load', function () {
-                  var rootEl = document.getElementById('root');
-                  function showErr(msg) {
-                    rootEl.innerHTML = '<pre style="padding:12px;margin:0;color:#ef4444;font-size:12px;white-space:pre-wrap"><b>Preview error</b>\\n' + String(msg) + '</pre>';
-                  }
-                  if (typeof React === 'undefined') return showErr('React CDN failed to load');
-                  if (typeof ReactDOM === 'undefined') return showErr('ReactDOM CDN failed to load');
-                  if (typeof Babel === 'undefined') return showErr('Babel CDN failed to load');
-
-                  var src, names, checks;
-                  try { src = JSON.parse(document.getElementById('__src__').textContent); }
-                  catch (e) { return showErr('Source parse error: ' + e.message); }
-                  try { names = JSON.parse(document.getElementById('__names__').textContent); }
-                  catch (e) { names = ['__defaultExport__', 'App']; }
-                  try { checks = JSON.parse(document.getElementById('__checks__').textContent); }
-                  catch (e) { checks = '\\nif(typeof __defaultExport__==="function")return __defaultExport__;\\nif(typeof App==="function")return App;'; }
-
-                  var prelude = 'var {useState,useEffect,useRef,useCallback,useMemo,useContext,createContext,Fragment}=React;\\n' +
-                    'var RRD=(typeof ReactRouterDOM!=="undefined"?ReactRouterDOM:{});\\n' +
-                    'var {HashRouter,BrowserRouter,MemoryRouter,Routes,Route,Link,NavLink,Navigate,Outlet,useNavigate,useParams,useLocation,useSearchParams}=RRD;\\n' +
-                    'function require(name){if(/^react-dom/.test(name))return ReactDOM;if(/^react-router-dom/.test(name))return RRD;if(/^react/.test(name))return React;return {};}\\n';
-                  var compiled;
-                  try {
-                    compiled = Babel.transform(prelude + src, {
-                      presets: [['react', { runtime: 'classic' }], 'typescript'],
-                      filename: 'app.tsx',
-                      sourceType: 'script',
-                    });
-                  } catch (e) { return showErr('Compile error: ' + e.message); }
-
-                  // Append direct typeof checks (no eval) so variable lookup works regardless
-                  // of whether Babel emits "use strict" or how const/let are scoped.
-                  var RC;
-                  try {
-                    var factory = new Function('React', 'ReactDOM',
-                      compiled.code + checks + '\\nreturn null;'
-                    );
-                    RC = factory(React, ReactDOM);
-                  } catch (e) { return showErr('Runtime error: ' + e.message); }
-
-                  if (!RC) return showErr(
-                    'No renderable component found.\\n' +
-                    'Tried: ' + names.slice(0, 8).join(', ') + (names.length > 8 ? ' …' : '') +
-                    '\\nEnsure the root component is exported or named App.'
-                  );
-
-                  // Error boundary catches async render errors that a try/catch cannot.
-                  var EB = class extends React.Component {
-                    constructor(p) { super(p); this.state = {err: null}; }
-                    static getDerivedStateFromError(e) { return {err: e}; }
-                    render() {
-                      if (this.state.err) return React.createElement('pre', {
-                        style: {padding:'12px',margin:0,color:'#ef4444',fontSize:'12px',whiteSpace:'pre-wrap'}
-                      }, 'Render error\\n' + String(this.state.err));
-                      return this.props.children;
-                    }
-                  };
-                  window.onerror = function(msg) { showErr('Error: ' + msg); return true; };
-                  try {
-                    ReactDOM.createRoot(rootEl).render(
-                      React.createElement(EB, null, React.createElement(RC))
-                    );
-                  } catch (e) { showErr('Render error: ' + e.message); }
-                });
-              </script>
-            </body>
-          </html>`;
-          }
-
 function buildVuePreviewHtml(contentMap: Map<string, string>): string {
   const cssContent = [...contentMap.entries()]
     .filter(([path]) => /\.css$/i.test(path))
@@ -535,14 +343,12 @@ const FRAMEWORK_DISPLAY: Record<
   website: {
     label: "HTML/CSS",
     icon: "🌐",
-    colorClass:
-      "text-orange-400 bg-orange-500/10 border-orange-500/30",
+    colorClass: "text-orange-400 bg-orange-500/10 border-orange-500/30",
   },
   ui: {
     label: "HTML/CSS",
     icon: "🎨",
-    colorClass:
-      "text-orange-400 bg-orange-500/10 border-orange-500/30",
+    colorClass: "text-orange-400 bg-orange-500/10 border-orange-500/30",
   },
   reactjs: {
     label: "React",
@@ -609,8 +415,8 @@ function LivePreviewPanel({
             {framework} live preview
           </p>
           <p className="text-xs text-muted/45 mt-1 max-w-xs">
-            Spins up a real dev server for this project. First start can take
-            a minute while dependencies install.
+            Spins up a real dev server for this project. First start can take a
+            minute while dependencies install.
           </p>
         </div>
         <button
@@ -630,7 +436,9 @@ function LivePreviewPanel({
       <>
         <span className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         <p className="text-xs text-muted/60">
-          {!filesReady ? "Preparing project files…" : "Starting preview session…"}
+          {!filesReady
+            ? "Preparing project files…"
+            : "Starting preview session…"}
         </p>
       </>
     );
@@ -713,7 +521,7 @@ export const ChatPage = () => {
     enabled: !!threadId,
   });
 
-  const allFiles = filesData?.results ?? [];
+  const allFiles = (filesData?.results || filesData?.files || []) as ProjectFile[];
 
   const { data: selectedFileData, isLoading: selectedFileLoading } = useQuery({
     queryKey: ["file", threadId, selectedFile],
@@ -764,15 +572,15 @@ export const ChatPage = () => {
   );
 
   useEffect(() => {
-    if (!filesData?.results.length) return;
+    if (!filesData?.count || !(filesData?.results?.length || filesData?.files?.length)) return;
     setOpenTabs((prev) => {
       const existing = new Set(prev);
-      const toAdd = filesData.results
+      const toAdd = (filesData.results || filesData.files || [])
         .map((f) => f.path)
         .filter((p) => !existing.has(p) && !closedTabsRef.current.has(p));
       return toAdd.length ? [...prev, ...toAdd] : prev;
     });
-    setSelectedFile((prev) => prev ?? filesData.results[0].path);
+    setSelectedFile((prev) => prev ?? (filesData.results || filesData.files || [])[0]?.path ?? null);
   }, [filesData]);
 
   const totalFiles = allFiles.length;
@@ -981,15 +789,15 @@ export const ChatPage = () => {
   const previewHtml = (() => {
     if (viewMode !== "preview" || previewLoading) return null;
     // Never call the framework builders with an empty map — files haven't loaded yet.
-    if (projectMode === "reactjs") {
-      if (depContentMap.size === 0) return null;
-      return buildReactPreviewHtml(depContentMap);
-    }
     if (projectMode === "vuejs") {
       if (depContentMap.size === 0) return null;
       return buildVuePreviewHtml(depContentMap);
     }
-    if (projectMode === "angular" || projectMode === "wordpress_divi_child")
+    if (
+      projectMode === "reactjs" ||
+      projectMode === "angular" ||
+      projectMode === "wordpress_divi_child"
+    )
       return null;
     if (previewHtmlFile?.content)
       return buildPreviewHtml(previewHtmlFile.content, depContentMap);
@@ -997,9 +805,12 @@ export const ChatPage = () => {
   })();
 
   // ── Live preview (real dev server, for frameworks the in-browser preview can't
-  // render: Angular and WordPress) ─────────────────────────────────────────────
+  // render, or can't render faithfully since it can only load react/react-dom/
+  // react-router-dom: React, Angular, and WordPress) ─────────────────────────
   const isLivePreviewMode =
-    projectMode === "angular" || projectMode === "wordpress_divi_child";
+    projectMode === "reactjs" ||
+    projectMode === "angular" ||
+    projectMode === "wordpress_divi_child";
   const liveFramework = projectMode ? modeToFramework(projectMode) : "react";
 
   const [liveRequested, setLiveRequested] = useState(false);
@@ -1316,7 +1127,7 @@ export const ChatPage = () => {
         ) : previewHtml ? (
           <iframe
             key={
-              projectMode === "reactjs" || projectMode === "vuejs"
+              projectMode === "vuejs"
                 ? `${projectMode}-preview`
                 : (previewTargetPath ?? "preview")
             }
@@ -1345,7 +1156,13 @@ export const ChatPage = () => {
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center px-6">
             {isLivePreviewMode ? (
               <LivePreviewPanel
-                framework={projectMode === "angular" ? "Angular" : "WordPress"}
+                framework={
+                  projectMode === "reactjs"
+                    ? "React"
+                    : projectMode === "angular"
+                      ? "Angular"
+                      : "WordPress"
+                }
                 requested={liveRequested}
                 filesReady={liveFilesReady}
                 status={liveStatusQuery.data ?? null}
@@ -1375,12 +1192,14 @@ export const ChatPage = () => {
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="hidden lg:flex h-full">
-        <div className={cn(
-          "flex flex-col shrink-0",
-          isStreaming || isGenerating
-            ? "flex-1"
-            : "w-[380px] min-w-[260px] border-r border-border"
-        )}>
+        <div
+          className={cn(
+            "flex flex-col shrink-0",
+            isStreaming || isGenerating || !realFileTree.length
+              ? "flex-1"
+              : "w-[380px] min-w-[260px] border-r border-border",
+          )}
+        >
           <div className="border-b border-border bg-background px-5 py-3.5 shrink-0">
             <div className="flex items-center gap-2 min-w-0">
               <div className="w-full truncate">
@@ -1436,13 +1255,17 @@ export const ChatPage = () => {
             hideSuggestion
           />
         </div>
-        {!isStreaming && !isGenerating && viewMode === "code" && (
-          <div className="w-[260px] min-w-[180px] border-r border-border flex flex-col shrink-0">
-            {fileTreePanel}
-          </div>
-        )}
-        {!isStreaming && !isGenerating && (
-          <div className="flex-1 flex flex-col min-w-0">{codePanel}</div>
+        {realFileTree.length > 0 && (
+          <>
+            {!isStreaming && !isGenerating && viewMode === "code" && (
+              <div className="w-[260px] min-w-[180px] border-r border-border flex flex-col shrink-0">
+                {fileTreePanel}
+              </div>
+            )}
+            {!isStreaming && !isGenerating && (
+              <div className="flex-1 flex flex-col min-w-0">{codePanel}</div>
+            )}
+          </>
         )}
       </div>
     </div>

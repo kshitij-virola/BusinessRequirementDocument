@@ -22,6 +22,21 @@ export const billingService = {
     let customerId = user.subscription.stripeCustomerId
     if (!customerId) customerId = await billingService.createCustomer(userId, user.email, user.name)
 
+    const planDoc = await Plan.findOne({
+      $or: [
+        { stripePriceIdMonthly: priceId },
+        { stripePriceIdYearly: priceId }
+      ]
+    })
+    let planSlug = 'free'
+    if (planDoc) {
+      planSlug = planDoc.slug
+    } else if (priceId === env.stripe.proPriceId) {
+      planSlug = 'pro'
+    } else if (priceId === env.stripe.agencyPriceId) {
+      planSlug = 'agency'
+    }
+
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',
@@ -29,7 +44,7 @@ export const billingService = {
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: successUrl,
       cancel_url: cancelUrl,
-      metadata: { userId },
+      metadata: { userId, plan: planSlug },
     })
 
     return session.url ?? ''
@@ -55,7 +70,7 @@ export const billingService = {
       case 'checkout.session.completed': {
         const userId = (obj.metadata as Record<string, string> | undefined)?.userId
         if (!userId) break
-        const plan = ((obj.metadata as Record<string, string>)?.plan ?? 'pro') as 'pro' | 'agency'
+        const plan = ((obj.metadata as Record<string, string>)?.plan ?? 'free') as 'free' | 'pro' | 'agency'
         const subId = obj.subscription as string
         
         const planDoc = await Plan.findOne({ slug: plan })

@@ -81,14 +81,15 @@ router.post('/', validate(createSchema), async (req: AuthRequest, res: Response)
   const user = await User.findById(userId)
   if (!user) { error(res, 'User not found', 404); return }
   await user.checkSubscription()
-  const count = await Workspace.countDocuments({ userId, status: { $ne: 'deleted' } })
-  const limit = planLimits[user.subscription.plan as keyof typeof planLimits] ?? 2
-  if (count >= limit) { error(res, `Workspace limit reached for your plan (${limit} projects). Please upgrade your plan.`, 402); return }
 
   if (user.credits.remaining <= 0) {
     error(res, 'Insufficient credits to create a new workspace. Please upgrade your plan or wait for your credits to reset.', 402)
     return
   }
+
+  const count = await Workspace.countDocuments({ userId, status: { $ne: 'deleted' } })
+  const limit = planLimits[user.subscription.plan as keyof typeof planLimits] ?? 2
+  if (count >= limit) { error(res, `Workspace limit reached for your plan (${limit} projects). Please upgrade your plan.`, 402); return }
 
   const workspace = await Workspace.create({ userId, ...req.body })
   if (projectId) await Project.findByIdAndUpdate(projectId, { $inc: { workspaceCount: 1 } })  
@@ -130,9 +131,8 @@ router.delete('/:id', async (req: AuthRequest, res: Response): Promise<void> => 
   workspace.status = 'deleted'
   await workspace.save()
 
-  if (workspace.projectId) {
+  if (workspace.projectId) 
     await Project.findByIdAndUpdate(workspace.projectId, { $inc: { workspaceCount: -1 } })
-  }
 
   const user = await User.findById(req.user!.userId)
   await AuditLog.create({ userId: req.user!.userId, actor: user?.email ?? '', actorRole: user?.role ?? 'user', action: 'workspace.delete', entityId: String(workspace._id), entityType: 'Workspace' })
