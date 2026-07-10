@@ -1,0 +1,744 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model accounts_user {
+  password                         String                             @db.VarChar(128)
+  id                               String                             @id @db.Uuid
+  email                            String                             @unique @db.VarChar(254)
+  first_name                       String                             @db.VarChar(150)
+  last_name                        String                             @db.VarChar(150)
+  is_staff                         Boolean
+  is_active                        Boolean
+  is_superuser                     Boolean
+  date_joined                      DateTime                           @db.Timestamptz(6)
+  last_login                       DateTime?                          @db.Timestamptz(6)
+  created_at                       DateTime                           @db.Timestamptz(6)
+  updated_at                       DateTime                           @db.Timestamptz(6)
+  accounts_user_groups             accounts_user_groups[]
+  accounts_user_user_permissions   accounts_user_user_permissions[]
+  django_admin_log                 django_admin_log[]
+  generation_tokenusage            generation_tokenusage[]
+  generation_tokenusagesummary     generation_tokenusagesummary[]
+  mcp_server_config                mcp_server_config[]
+  threads_thread                   threads_thread[]
+  token_blacklist_outstandingtoken token_blacklist_outstandingtoken[]
+
+  @@index([email], map: "accounts_user_email_b2644a56_like")
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model accounts_user_groups {
+  id            BigInt        @id @default(autoincrement())
+  user_id       String        @db.Uuid
+  group_id      Int
+  auth_group    auth_group    @relation(fields: [group_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "accounts_user_groups_group_id_bd11a704_fk_auth_group_id")
+  accounts_user accounts_user @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "accounts_user_groups_user_id_52b62117_fk_accounts_user_id")
+
+  @@unique([user_id, group_id], map: "accounts_user_groups_user_id_group_id_59c0b32f_uniq")
+  @@index([group_id], map: "accounts_user_groups_group_id_bd11a704")
+  @@index([user_id], map: "accounts_user_groups_user_id_52b62117")
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model accounts_user_user_permissions {
+  id              BigInt          @id @default(autoincrement())
+  user_id         String          @db.Uuid
+  permission_id   Int
+  auth_permission auth_permission @relation(fields: [permission_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "accounts_user_user_p_permission_id_113bb443_fk_auth_perm")
+  accounts_user   accounts_user   @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "accounts_user_user_p_user_id_e4f0a161_fk_accounts_")
+
+  @@unique([user_id, permission_id], map: "accounts_user_user_permi_user_id_permission_id_2ab516c2_uniq")
+  @@index([permission_id], map: "accounts_user_user_permissions_permission_id_113bb443")
+  @@index([user_id], map: "accounts_user_user_permissions_user_id_e4f0a161")
+}
+
+model auth_group {
+  id                     Int                      @id @default(autoincrement())
+  name                   String                   @unique @db.VarChar(150)
+  accounts_user_groups   accounts_user_groups[]
+  auth_group_permissions auth_group_permissions[]
+
+  @@index([name], map: "auth_group_name_a6ea08ec_like")
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model auth_group_permissions {
+  id              BigInt          @id @default(autoincrement())
+  group_id        Int
+  permission_id   Int
+  auth_permission auth_permission @relation(fields: [permission_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "auth_group_permissio_permission_id_84c5c92e_fk_auth_perm")
+  auth_group      auth_group      @relation(fields: [group_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "auth_group_permissions_group_id_b120cbf9_fk_auth_group_id")
+
+  @@unique([group_id, permission_id], map: "auth_group_permissions_group_id_permission_id_0cd325b0_uniq")
+  @@index([group_id], map: "auth_group_permissions_group_id_b120cbf9")
+  @@index([permission_id], map: "auth_group_permissions_permission_id_84c5c92e")
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model auth_permission {
+  id                             Int                              @id @default(autoincrement())
+  name                           String                           @db.VarChar(255)
+  content_type_id                Int
+  codename                       String                           @db.VarChar(100)
+  accounts_user_user_permissions accounts_user_user_permissions[]
+  auth_group_permissions         auth_group_permissions[]
+  django_content_type            django_content_type              @relation(fields: [content_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "auth_permission_content_type_id_2f476e4b_fk_django_co")
+
+  @@unique([content_type_id, codename], map: "auth_permission_content_type_id_codename_01ab375a_uniq")
+  @@index([content_type_id], map: "auth_permission_content_type_id_2f476e4b")
+}
+
+model checkpoint_blobs {
+  thread_id     String
+  checkpoint_ns String @default("")
+  channel       String
+  version       String
+  type          String
+  blob          Bytes?
+
+  @@id([thread_id, checkpoint_ns, channel, version])
+  @@index([thread_id])
+}
+
+model checkpoint_migrations {
+  v Int @id
+}
+
+model checkpoint_writes {
+  thread_id     String
+  checkpoint_ns String  @default("")
+  checkpoint_id String
+  task_id       String
+  idx           Int
+  channel       String
+  type          String?
+  blob          Bytes
+  task_path     String  @default("")
+
+  @@id([thread_id, checkpoint_ns, checkpoint_id, task_id, idx])
+  @@index([thread_id])
+}
+
+model checkpoints {
+  thread_id            String
+  checkpoint_ns        String  @default("")
+  checkpoint_id        String
+  parent_checkpoint_id String?
+  type                 String?
+  checkpoint           Json
+  metadata             Json    @default("{}")
+
+  @@id([thread_id, checkpoint_ns, checkpoint_id])
+  @@index([thread_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model django_admin_log {
+  id                  Int                  @id @default(autoincrement())
+  action_time         DateTime             @db.Timestamptz(6)
+  object_id           String?
+  object_repr         String               @db.VarChar(200)
+  action_flag         Int                  @db.SmallInt
+  change_message      String
+  content_type_id     Int?
+  user_id             String               @db.Uuid
+  django_content_type django_content_type? @relation(fields: [content_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "django_admin_log_content_type_id_c4bce8eb_fk_django_co")
+  accounts_user       accounts_user        @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "django_admin_log_user_id_c564eba6_fk_accounts_user_id")
+
+  @@index([content_type_id], map: "django_admin_log_content_type_id_c4bce8eb")
+  @@index([user_id], map: "django_admin_log_user_id_c564eba6")
+}
+
+model django_content_type {
+  id               Int                @id @default(autoincrement())
+  app_label        String             @db.VarChar(100)
+  model            String             @db.VarChar(100)
+  auth_permission  auth_permission[]
+  django_admin_log django_admin_log[]
+
+  @@unique([app_label, model], map: "django_content_type_app_label_model_76bd3d3b_uniq")
+}
+
+model django_migrations {
+  id      BigInt   @id @default(autoincrement())
+  app     String   @db.VarChar(255)
+  name    String   @db.VarChar(255)
+  applied DateTime @db.Timestamptz(6)
+}
+
+model django_session {
+  session_key  String   @id @db.VarChar(40)
+  session_data String
+  expire_date  DateTime @db.Timestamptz(6)
+
+  @@index([expire_date], map: "django_session_expire_date_a5c62663")
+  @@index([session_key], map: "django_session_session_key_c0390e0f_like")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model generation_buildfailurebucket {
+  id                       BigInt    @id @default(autoincrement())
+  stack                    String    @db.VarChar(32)
+  error_class              String    @db.VarChar(400)
+  occurrences              Int
+  floor_count              Int
+  first_seen               DateTime  @db.Timestamptz(6)
+  last_seen                DateTime? @db.Timestamptz(6)
+  distilled_at_occurrences Int
+  last_distilled_at        DateTime? @db.Timestamptz(6)
+  distill_status           String    @db.VarChar(24)
+  last_distill_error       String
+
+  @@unique([stack, error_class], map: "uniq_kb_bucket")
+  @@index([stack, last_seen], map: "generation__stack_45a70a_idx")
+}
+
+model generation_buildfailureobservation {
+  id             BigInt   @id @default(autoincrement())
+  stack          String   @db.VarChar(32)
+  error_class    String   @db.VarChar(400)
+  broken_snippet String
+  error_excerpt  String
+  fixed_snippet  String?
+  outcome        String   @db.VarChar(16)
+  run_id         String   @db.VarChar(128)
+  created_at     DateTime @db.Timestamptz(6)
+
+  @@index([stack, error_class, created_at], map: "generation__stack_b908ea_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model generation_buildfailurerule {
+  id                          BigInt    @id @default(autoincrement())
+  stack                       String    @db.VarChar(32)
+  error_class                 String    @db.VarChar(400)
+  cause_key                   String    @db.VarChar(128)
+  cause_label                 String    @db.VarChar(200)
+  rule_text                   String?
+  status                      String    @db.VarChar(24)
+  version                     Int
+  distilled_from_count        Int
+  last_distilled_at           DateTime? @db.Timestamptz(6)
+  injected_count              Int
+  recurrences_after_injection Int
+  last_seen                   DateTime? @db.Timestamptz(6)
+  created_at                  DateTime  @db.Timestamptz(6)
+  updated_at                  DateTime  @db.Timestamptz(6)
+
+  @@unique([stack, error_class, cause_key], map: "uniq_kb_cause")
+  @@index([stack, status, last_seen], map: "generation__stack_46fe74_idx")
+  @@index([cause_key], map: "generation_buildfailurerule_cause_key_09f82ede")
+  @@index([cause_key], map: "generation_buildfailurerule_cause_key_09f82ede_like")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model generation_tokenusage {
+  id                   BigInt            @id @default(autoincrement())
+  thread_id            String?           @db.VarChar(255)
+  provider             String            @db.VarChar(50)
+  model_name           String            @db.VarChar(100)
+  prompt_tokens        Int
+  completion_tokens    Int
+  total_tokens         Int
+  estimated_cost_cents Decimal?          @db.Decimal(10, 4)
+  request_id           String?           @db.VarChar(255)
+  created_at           DateTime          @db.Timestamptz(6)
+  project_id           String?           @db.Uuid
+  user_id              String?           @db.Uuid
+  projects_project     projects_project? @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "generation_tokenusag_project_id_8408d663_fk_projects_")
+  accounts_user        accounts_user?    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "generation_tokenusage_user_id_46bac82e_fk_accounts_user_id")
+
+  @@index([created_at], map: "generation__created_7e29b8_idx")
+  @@index([provider, model_name], map: "generation__provide_529b98_idx")
+  @@index([user_id, created_at], map: "generation__user_id_d32b60_idx")
+  @@index([created_at], map: "generation_tokenusage_created_at_7ea09bab")
+  @@index([model_name], map: "generation_tokenusage_model_name_44ac0625")
+  @@index([model_name], map: "generation_tokenusage_model_name_44ac0625_like")
+  @@index([project_id], map: "generation_tokenusage_project_id_8408d663")
+  @@index([provider], map: "generation_tokenusage_provider_cff5af77")
+  @@index([provider], map: "generation_tokenusage_provider_cff5af77_like")
+  @@index([request_id], map: "generation_tokenusage_request_id_ea5b9148")
+  @@index([request_id], map: "generation_tokenusage_request_id_ea5b9148_like")
+  @@index([thread_id], map: "generation_tokenusage_thread_id_ac482bb7")
+  @@index([thread_id], map: "generation_tokenusage_thread_id_ac482bb7_like")
+  @@index([user_id], map: "generation_tokenusage_user_id_46bac82e")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model generation_tokenusagesummary {
+  id                      BigInt         @id @default(autoincrement())
+  period_type             String         @db.VarChar(10)
+  period_start            DateTime       @db.Date
+  period_end              DateTime       @db.Date
+  provider                String         @db.VarChar(50)
+  model_name              String?        @db.VarChar(100)
+  total_prompt_tokens     BigInt
+  total_completion_tokens BigInt
+  total_tokens            BigInt
+  request_count           Int
+  total_cost_cents        Decimal?       @db.Decimal(14, 4)
+  created_at              DateTime       @db.Timestamptz(6)
+  updated_at              DateTime       @db.Timestamptz(6)
+  user_id                 String?        @db.Uuid
+  accounts_user           accounts_user? @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "generation_tokenusag_user_id_478f5c20_fk_accounts_")
+
+  @@unique([user_id, period_type, period_start, provider, model_name], map: "generation_tokenusagesum_user_id_period_type_peri_aa7d0c48_uniq")
+  @@index([period_start], map: "generation_tokenusagesummary_period_start_4bee88e2")
+  @@index([period_type], map: "generation_tokenusagesummary_period_type_614dddf1")
+  @@index([period_type], map: "generation_tokenusagesummary_period_type_614dddf1_like")
+  @@index([provider], map: "generation_tokenusagesummary_provider_732381bf")
+  @@index([provider], map: "generation_tokenusagesummary_provider_732381bf_like")
+  @@index([user_id], map: "generation_tokenusagesummary_user_id_478f5c20")
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model mcp_server_config {
+  id                String            @id @db.Uuid
+  name              String            @db.VarChar(255)
+  server_type       String            @db.VarChar(10)
+  is_active         Boolean
+  created_at        DateTime          @db.Timestamptz(6)
+  updated_at        DateTime          @db.Timestamptz(6)
+  project_id        String?           @db.Uuid
+  user_id           String            @db.Uuid
+  api_key           String?           @db.VarChar(1000)
+  connection_params Json
+  mcp_library       String            @db.VarChar(20)
+  projects_project  projects_project? @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "mcp_server_config_project_id_1bcc8fc7_fk_projects_project_id")
+  accounts_user     accounts_user     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "mcp_server_config_user_id_d3a47efe_fk_accounts_user_id")
+  mcp_tool_cache    mcp_tool_cache[]
+
+  @@unique([user_id, name], map: "mcp_server_config_user_id_name_d0ce0326_uniq")
+  @@index([project_id, is_active], map: "mcp_server__project_e7b59b_idx")
+  @@index([user_id, is_active], map: "mcp_server__user_id_a984e5_idx")
+  @@index([project_id], map: "mcp_server_config_project_id_1bcc8fc7")
+  @@index([user_id], map: "mcp_server_config_user_id_d3a47efe")
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model mcp_tool_cache {
+  id                BigInt            @id @default(autoincrement())
+  tool_name         String            @db.VarChar(255)
+  tool_schema       Json
+  last_updated      DateTime          @db.Timestamptz(6)
+  server_config_id  String            @db.Uuid
+  mcp_server_config mcp_server_config @relation(fields: [server_config_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "mcp_tool_cache_server_config_id_73c4188e_fk_mcp_serve")
+
+  @@unique([server_config_id, tool_name], map: "mcp_tool_cache_server_config_id_tool_name_ea6b4b57_uniq")
+  @@index([server_config_id, tool_name], map: "mcp_tool_ca_server__378e57_idx")
+  @@index([server_config_id], map: "mcp_tool_cache_server_config_id_73c4188e")
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model projects_project {
+  id                    String                  @id @db.Uuid
+  name                  String                  @db.VarChar(255)
+  tech_stack            Json
+  status                String                  @db.VarChar(20)
+  created_at            DateTime                @db.Timestamptz(6)
+  updated_at            DateTime                @db.Timestamptz(6)
+  thread_id             String                  @unique @db.Uuid
+  generation_tokenusage generation_tokenusage[]
+  mcp_server_config     mcp_server_config[]
+  threads_thread        threads_thread          @relation(fields: [thread_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "projects_project_thread_id_a4f39da8_fk_threads_thread_id")
+  projects_projectfile  projects_projectfile[]
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model projects_projectfile {
+  id               String           @id @db.Uuid
+  path             String           @db.VarChar(500)
+  content          String
+  file_type        String           @db.VarChar(50)
+  version          Int
+  created_at       DateTime         @db.Timestamptz(6)
+  updated_at       DateTime         @db.Timestamptz(6)
+  project_id       String           @db.Uuid
+  content_binary   Bytes?
+  is_compressed    Boolean
+  size_bytes       BigInt?
+  is_binary        Boolean
+  projects_project projects_project @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "projects_projectfile_project_id_a623fca3_fk_projects_project_id")
+
+  @@unique([project_id, path], map: "unique_project_path")
+  @@index([project_id, updated_at], map: "prjfile_proj_updated_idx")
+  @@index([project_id, path], map: "projectfile_project_path_idx")
+  @@index([project_id, file_type], map: "projectfile_project_type_idx")
+  @@index([project_id], map: "projects_projectfile_project_id_a623fca3")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model threads_message {
+  id                        String                      @id @db.Uuid
+  content                   String
+  status                    String                      @db.VarChar(20)
+  files_changed             Json
+  error_message             String?
+  created_at                DateTime                    @db.Timestamptz(6)
+  thread_id                 String                      @db.Uuid
+  additional_kwargs         Json
+  invalid_tool_calls        Json
+  name                      String?                     @db.VarChar(255)
+  response_metadata         Json
+  tool_calls                Json
+  type                      String                      @db.VarChar(10)
+  attachments               Json
+  mode                      String                      @db.VarChar(20)
+  stages                    Json
+  completion_tokens         Int
+  prompt_tokens             Int
+  total_tokens              Int
+  threads_thread            threads_thread              @relation(fields: [thread_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "threads_message_thread_id_5699fb10_fk_threads_thread_id")
+  threads_messageattachment threads_messageattachment[]
+  threads_messagetoolcall   threads_messagetoolcall[]
+
+  @@index([status], map: "msg_status_idx")
+  @@index([thread_id, created_at], map: "msg_thread_created_idx")
+  @@index([thread_id, status, created_at], map: "msg_thread_status_created_idx")
+  @@index([thread_id, type], map: "msg_thread_type_idx")
+  @@index([thread_id], map: "threads_message_thread_id_5699fb10")
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model threads_messageattachment {
+  id              String          @id @db.Uuid
+  attachment_id   String          @db.Uuid
+  type            String          @db.VarChar(20)
+  storage_path    String
+  mime_type       String          @db.VarChar(100)
+  filename        String          @db.VarChar(255)
+  file_size       BigInt?
+  metadata        Json
+  created_at      DateTime        @db.Timestamptz(6)
+  message_id      String          @db.Uuid
+  threads_message threads_message @relation(fields: [message_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "threads_messageattac_message_id_a2074e8f_fk_threads_m")
+
+  @@index([attachment_id], map: "attachment_id_idx")
+  @@index([message_id, type], map: "attachment_msg_type_idx")
+  @@index([message_id], map: "threads_messageattachment_message_id_a2074e8f")
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model threads_messagetoolcall {
+  id              String          @id @db.Uuid
+  call_id         String          @db.VarChar(255)
+  tool_name       String          @db.VarChar(255)
+  tool_args       Json
+  result          String?
+  status          String          @db.VarChar(20)
+  duration_ms     Int?
+  error_message   String?
+  created_at      DateTime        @db.Timestamptz(6)
+  completed_at    DateTime?       @db.Timestamptz(6)
+  message_id      String          @db.Uuid
+  threads_message threads_message @relation(fields: [message_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "threads_messagetoolc_message_id_571724b2_fk_threads_m")
+
+  @@index([message_id], map: "threads_messagetoolcall_message_id_571724b2")
+  @@index([message_id, status], map: "toolcall_msg_status_idx")
+  @@index([tool_name], map: "toolcall_name_idx")
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model threads_thread {
+  id               String            @id @db.Uuid
+  title            String            @db.VarChar(255)
+  created_at       DateTime          @db.Timestamptz(6)
+  updated_at       DateTime          @db.Timestamptz(6)
+  user_id          String            @db.Uuid
+  projects_project projects_project?
+  threads_message  threads_message[]
+  accounts_user    accounts_user     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "threads_thread_user_id_6b9ed432_fk_accounts_user_id")
+
+  @@index([user_id], map: "threads_thread_user_id_6b9ed432")
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model token_blacklist_blacklistedtoken {
+  id                               BigInt                           @id @default(autoincrement())
+  blacklisted_at                   DateTime                         @db.Timestamptz(6)
+  token_id                         BigInt                           @unique
+  token_blacklist_outstandingtoken token_blacklist_outstandingtoken @relation(fields: [token_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "token_blacklist_blacklistedtoken_token_id_3cc7fe56_fk")
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model token_blacklist_outstandingtoken {
+  id                               BigInt                            @id @default(autoincrement())
+  token                            String
+  created_at                       DateTime?                         @db.Timestamptz(6)
+  expires_at                       DateTime                          @db.Timestamptz(6)
+  user_id                          String?                           @db.Uuid
+  jti                              String                            @unique(map: "token_blacklist_outstandingtoken_jti_hex_d9bdf6f7_uniq") @db.VarChar(255)
+  token_blacklist_blacklistedtoken token_blacklist_blacklistedtoken?
+  accounts_user                    accounts_user?                    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "token_blacklist_outs_user_id_83bc629a_fk_accounts_")
+
+  @@index([jti], map: "token_blacklist_outstandingtoken_jti_hex_d9bdf6f7_like")
+  @@index([user_id], map: "token_blacklist_outstandingtoken_user_id_83bc629a")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TROO AI domain (this service's own tables, prefixed troo_ to avoid any
+// collision with the ai-theme-generator tables introspected above). Owned and
+// migrated by this app via `prisma db push` — never run `db pull` again without
+// checking it doesn't clobber these additions.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum TrooRole {
+  user
+  admin
+  superadmin
+}
+
+enum TrooOauthProvider {
+  google
+  github
+  microsoft
+}
+
+enum TrooSubscriptionPlan {
+  free
+  pro
+  agency
+}
+
+enum TrooSubscriptionStatus {
+  active
+  canceled
+  past_due
+  trialing
+}
+
+enum TrooFramework {
+  react
+  vue
+  angular
+  html
+  wordpress
+}
+
+enum TrooWorkspaceStatus {
+  active
+  archived
+  deleted
+}
+
+enum TrooProjectStatus {
+  active
+  archived
+  deleted
+}
+
+enum TrooInputMode {
+  text
+  figma
+  image
+}
+
+enum TrooGenerationStatus {
+  pending
+  processing
+  completed
+  failed
+  cancelled
+}
+
+enum TrooTokenType {
+  refresh
+  email_verify
+  password_reset
+}
+
+model TrooUser {
+  id                     String                 @id @default(uuid())
+  name                   String
+  email                  String                 @unique
+  password               String?
+  role                   TrooRole               @default(user)
+  avatar                 String?
+  isEmailVerified        Boolean                @default(false)
+  isSuspended            Boolean                @default(false)
+  oauthProvider          TrooOauthProvider?
+  oauthId                String?
+  subscriptionPlan       TrooSubscriptionPlan   @default(free)
+  stripeCustomerId       String?
+  stripeSubscriptionId   String?
+  currentPeriodEnd       DateTime?
+  subscriptionStatus     TrooSubscriptionStatus @default(active)
+  trialEndsAt            DateTime?
+  creditsRemaining       Int                    @default(25)
+  creditsUsed            Int                    @default(0)
+  creditsResetAt         DateTime               @default(now())
+  storageUsedBytes       BigInt                 @default(0)
+  storageLimitBytes      BigInt                 @default(524288000)
+  permissions            String[]               @default([])
+  passwordResetToken     String?
+  passwordResetExpires   DateTime?
+  emailVerificationToken String?
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+
+  workspaces  TrooWorkspace[]
+  projects    TrooProject[]
+  generations TrooGeneration[]
+  tokens      TrooToken[]
+  auditLogs   TrooAuditLog[]
+
+  @@index([stripeCustomerId])
+  @@map("troo_users")
+}
+
+model TrooWorkspace {
+  id               String              @id @default(uuid())
+  userId           String
+  user             TrooUser            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId        String?
+  project          TrooProject?        @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  name             String
+  framework        TrooFramework
+  status           TrooWorkspaceStatus @default(active)
+  description      String?
+  currentVersion   Int                 @default(0)
+  totalGenerations Int                 @default(0)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  generations TrooGeneration[]
+
+  @@index([userId, status])
+  @@map("troo_workspaces")
+}
+
+model TrooProject {
+  id             String            @id @default(uuid())
+  userId         String
+  user           TrooUser          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  status         TrooProjectStatus @default(active)
+  workspaceCount Int               @default(0)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  workspaces TrooWorkspace[]
+
+  @@index([userId, status])
+  @@map("troo_projects")
+}
+
+model TrooGeneration {
+  id               String               @id @default(uuid())
+  userId           String
+  user             TrooUser             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId      String
+  workspace        TrooWorkspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  threadId         String?
+  projectId        String?
+  version          Int
+  prompt           String
+  framework        TrooFramework
+  inputMode        TrooInputMode        @default(text)
+  figmaUrl         String?
+  imageKey         String?
+  imageKeys        String[]             @default([])
+  status           TrooGenerationStatus @default(pending)
+  outputCode       String?
+  outputFiles      Json?
+  zipKey           String?
+  zipUrl           String?
+  tokensUsed       Int                  @default(0)
+  creditsUsed      Int                  @default(0)
+  aiProvider       String               @default("openai")
+  aiModel          String               @default("gpt-4o")
+  aiCostUsd        Float                @default(0)
+  filesCount       Int?
+  errorMessage     String?
+  processingTimeMs Int?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([workspaceId, version])
+  @@map("troo_generations")
+}
+
+model TrooPlan {
+  id                          String               @id @default(uuid())
+  name                        String
+  slug                        TrooSubscriptionPlan @unique
+  monthlyPrice                Float
+  yearlyPrice                 Float
+  stripePriceIdMonthly        String?
+  stripePriceIdYearly         String?
+  featuresProjects            Int
+  featuresGenerationsPerMonth Int
+  featuresStorageBytes        BigInt
+  featuresDownloadsPerMonth   Int?
+  featuresFrameworks          String[]             @default([])
+  featuresFigmaConversion     Boolean              @default(false)
+  featuresImageConversion     Boolean              @default(false)
+  featuresTeamMembers         Int                  @default(1)
+  featuresApiAccess           Boolean              @default(false)
+  featuresPriorityQueue       Boolean              @default(false)
+  creditCostTextGeneration    Int                  @default(1)
+  creditCostImageConversion   Int                  @default(5)
+  creditCostFigmaConversion   Int                  @default(10)
+  creditCostThemeExport       Int                  @default(2)
+  isActive                    Boolean              @default(true)
+  createdAt                   DateTime             @default(now())
+  updatedAt                   DateTime             @updatedAt
+
+  @@map("troo_plans")
+}
+
+model TrooConfig {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("troo_configs")
+}
+
+model TrooToken {
+  id        String        @id @default(uuid())
+  userId    String
+  user      TrooUser      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String
+  type      TrooTokenType
+  expiresAt DateTime
+  createdAt DateTime      @default(now())
+
+  @@index([userId, type])
+  @@index([expiresAt])
+  @@map("troo_tokens")
+}
+
+model TrooAuditLog {
+  id         String    @id @default(uuid())
+  userId     String?
+  user       TrooUser? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  actor      String
+  actorRole  String
+  action     String
+  entityId   String?
+  entityType String?
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@index([createdAt])
+  @@map("troo_audit_logs")
+}
